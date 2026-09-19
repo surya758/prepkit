@@ -1,0 +1,34 @@
+{
+  "source": {
+    "company": "",
+    "company_url": "",
+    "role": "",
+    "location": "",
+    "jd_chars": 0,
+    "researched_at": "",
+    "pages_used": ["https://..."]
+  },
+  "company_brief": { "summary": "", "what_they_do": "", "sources": ["https://..."] },
+  "role": {
+    "title": "",
+    "seniority": "",
+    "responsibilities": [""],
+    "requirements": [{ "id": "r1", "text": "5+ years with React", "kind": "technical", "priority": "must" }]
+  },
+  "questions": [
+    {
+      "id": "q1",
+      "requirement_ids": ["r1"],
+      "category": "technical",
+      "prompt": "",
+      "answer_outline": "",
+      "difficulty": 2
+    }
+  ],
+  "flashcards": [{ "id": "f1", "front": "", "back": "", "requirement_ids": ["r1"] }],
+  "schedule": {
+    "days_available": 5,
+    "days": [{ "day": 1, "focus": "", "question_ids": ["q1"], "minutes": 60 }]
+  },
+  "coverage": { "uncovered_requirement_ids": [], "passes": 2 }
+}
