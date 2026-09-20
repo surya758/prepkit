@@ -40,7 +40,7 @@ TypeScript throughout, in an npm-workspaces monorepo.
 | Part | Choice | Status |
 |---|---|---|
 | Pipeline library | `packages/core` — plain TypeScript, [zod](https://zod.dev) for the kit contract | in progress |
-| Tests | vitest; fast-check for property-based tests | vitest in place, property tests _Pending_ |
+| Tests | vitest; fast-check for property-based tests | in place |
 | Backend | Node.js + Express, MongoDB | _Pending_ |
 | Frontend | Next.js + Tailwind CSS | _Pending_ |
 
@@ -216,3 +216,10 @@ npm test
 Tests need no API key and no database. Covered so far: kit and batch structure validation
 (including cross-references and Appendix A key conformance), coverage checking and the pass-limit
 rule, and schedule allocation for 1-day, N-day, 60-day and zero-question cases.
+
+The scheduler is also property-tested: fast-check generates random requirements, questions and day
+counts (1–90) and asserts that the schedule always spans exactly the requested days, uses positive
+integer minutes within the cap, references only questions that exist, validates against the kit
+schema, schedules every question, reaches every must-have that has a question, and introduces
+material in rank order. Reversing the rank order or dropping a question from a day makes these
+tests fail, which was checked by hand.
