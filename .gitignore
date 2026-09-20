@@ -1,7 +1,10 @@
 node_modules/
 dist/
 .next/
-coverage/
+# test coverage reports only — anchored so it cannot swallow src/coverage/
+/coverage/
+/packages/*/coverage/
+/apps/*/coverage/
 *.log
 
 .env
