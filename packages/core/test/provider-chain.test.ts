@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { BASE_COOLDOWN_MS, MAX_COOLDOWN_MS, PipelineError, createFakeProvider, createProviderChain } from "../src";
-import type { FakeReply } from "../src";
+import { BASE_COOLDOWN_MS, MAX_COOLDOWN_MS, PipelineError, createProviderChain } from "../src";
+import { createFakeProvider } from "../src/testing";
+import type { FakeReply } from "../src/testing";
 
 const rateLimited = () => new PipelineError("LLM_RATE_LIMITED", "still rate limited after 2 attempts");
 const down = () => new PipelineError("LLM_UNAVAILABLE", "HTTP 503");

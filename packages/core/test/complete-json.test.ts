@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { PipelineError, completeJson, createFakeProvider, createProviderChain } from "../src";
+import { PipelineError, completeJson, createProviderChain } from "../src";
+import { createFakeProvider } from "../src/testing";
 
 const schema = z.object({
   requirements: z.array(z.object({ text: z.string().min(1), priority: z.enum(["must", "nice"]) })),

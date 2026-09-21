@@ -1,4 +1,4 @@
-import type { LlmProvider, LlmRequest, LlmResponse } from "./provider";
+import type { LlmProvider, LlmRequest, LlmResponse } from "../llm/provider";
 
 // A scripted model. Tests of everything above the HTTP client use this, so they need no
 // key, no network and no quota, and they are deterministic.
