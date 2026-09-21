@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createJobRunner } from "../src/kits/job-runner";
 import type { GenerateFn } from "../src/kits/job-runner";
 import { createKitService, fingerprintOf } from "../src/kits/service";
-import { createMemoryKitRepository } from "./support/memory-repositories";
+import { createMemoryKitRepository, createMemoryPracticeRepository } from "./support/memory-repositories";
 import { sampleKit } from "./support/sample-kit";
 
 const ADA = "user-ada";
@@ -15,8 +15,9 @@ function setup(generate: GenerateFn = async () => sampleKit()) {
   const now = () => new Date(time++);
   const kits = createMemoryKitRepository();
   const runner = createJobRunner({ kits, generate, now, logError: () => {} });
-  const service = createKitService({ kits, runner, now });
-  return { kits, runner, service };
+  const practice = createMemoryPracticeRepository();
+  const service = createKitService({ kits, runner, practice, now });
+  return { kits, runner, practice, service };
 }
 
 describe("creating a kit", () => {
@@ -127,6 +128,28 @@ describe("a user only ever sees their own kits", () => {
     const { id } = await service.create(ADA, posting);
     await service.remove(ADA, id);
     expect(kits.all()).toEqual([]);
+  });
+
+  it("takes the kit's practice ratings with it, and leaves everyone else's", async () => {
+    const { service, practice } = setup();
+    const { id } = await service.create(ADA, posting);
+    const at = new Date("2026-09-21T10:00:00Z");
+    await practice.rate(ADA, id, "f1", 3, at);
+    await practice.rate(GRACE, "graces-kit", "f1", 2, at);
+
+    await service.remove(ADA, id);
+
+    expect(await practice.listForKit(ADA, id)).toEqual([]);
+    expect(await practice.listForKit(GRACE, "graces-kit")).toHaveLength(1);
+  });
+
+  it("leaves ratings alone when the kit was not the caller's to delete", async () => {
+    const { service, practice } = setup();
+    const { id } = await service.create(ADA, posting);
+    await practice.rate(ADA, id, "f1", 3, new Date("2026-09-21T10:00:00Z"));
+
+    await expect(service.remove(GRACE, id)).rejects.toMatchObject({ code: "KIT_NOT_FOUND" });
+    expect(practice.count()).toBe(1);
   });
 });
 

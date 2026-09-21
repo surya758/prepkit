@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { AppError, conflict, notFound } from "../errors";
+import type { PracticeRepository } from "../practice/repository";
 import type { JobRunner } from "./job-runner";
 import { toSummary } from "./repository";
 import type { KitInput, KitRecord, KitRepository, KitSummary } from "./repository";
@@ -27,6 +28,8 @@ export type BulkResult =
 export interface KitServiceDependencies {
   kits: KitRepository;
   runner: JobRunner;
+  /** A deleted kit takes its practice ratings with it. */
+  practice: Pick<PracticeRepository, "deleteForKit">;
   now?: () => Date;
 }
 
@@ -48,7 +51,7 @@ const kitNotFound = () => notFound("KIT_NOT_FOUND", "That kit does not exist");
 
 export type KitService = ReturnType<typeof createKitService>;
 
-export function createKitService({ kits, runner, now = () => new Date() }: KitServiceDependencies) {
+export function createKitService({ kits, runner, practice, now = () => new Date() }: KitServiceDependencies) {
   return {
     /** Records the kit as queued, hands it to the runner, and returns without waiting for it. */
     async create(userId: string, input: CreateKitInput): Promise<KitSummary> {
@@ -129,6 +132,9 @@ export function createKitService({ kits, runner, now = () => new Date() }: KitSe
 
     async remove(userId: string, kitId: string): Promise<void> {
       if (!(await kits.deleteOwned(kitId, userId))) throw kitNotFound();
+      // The kit first. If this second step fails, what is left is ratings nobody can reach —
+      // a kit's id is never issued again — rather than a kit whose progress silently vanished.
+      await practice.deleteForKit(userId, kitId);
     },
 
     /** Runs a failed kit again, from the start, keeping its id. */

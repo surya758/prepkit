@@ -1,6 +1,6 @@
 import { PipelineError, validateKit } from "@prepkit/core";
 import type { DraftQuestion, Kit } from "@prepkit/core";
-import request from "supertest";
+import { request } from "./support/http";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app";
 import { createAuthRouter } from "../src/auth/routes";
@@ -14,7 +14,7 @@ import type { GenerateFn } from "../src/kits/job-runner";
 import { createKitRouter } from "../src/kits/routes";
 import { createKitService } from "../src/kits/service";
 import { createRequireUser } from "../src/middleware/require-user";
-import { createMemoryKitRepository, createMemorySessionRepository, createMemoryUserRepository } from "./support/memory-repositories";
+import { createMemoryKitRepository, createMemoryPracticeRepository, createMemorySessionRepository, createMemoryUserRepository } from "./support/memory-repositories";
 import { sampleKit } from "./support/sample-kit";
 
 const fresh = (prompt: string): DraftQuestion => ({ category: "technical", prompt, requirement_ids: ["r1"], difficulty: 2, answer_outline: "Fresh outline." });
@@ -54,7 +54,7 @@ function setup(regenerate: Partial<Regenerators> = {}, generate: GenerateFn = as
     logError: () => {},
     routers: [
       createAuthRouter({ auth, config }),
-      createKitRouter({ kits: createKitService({ kits: kitRepository, runner }), requireUser }),
+      createKitRouter({ kits: createKitService({ kits: kitRepository, runner, practice: createMemoryPracticeRepository() }), requireUser }),
       createBuilderRouter({ builder, requireUser }),
     ],
   });

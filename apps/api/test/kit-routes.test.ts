@@ -1,6 +1,6 @@
 import { PipelineError } from "@prepkit/core";
 import type { ProgressEvent } from "@prepkit/core";
-import request from "supertest";
+import { request } from "./support/http";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app";
 import { createAuthRouter } from "../src/auth/routes";
@@ -11,7 +11,7 @@ import type { GenerateFn } from "../src/kits/job-runner";
 import { KITS_PER_HOUR, createKitRouter } from "../src/kits/routes";
 import { createKitService } from "../src/kits/service";
 import { createRequireUser } from "../src/middleware/require-user";
-import { createMemoryKitRepository, createMemorySessionRepository, createMemoryUserRepository } from "./support/memory-repositories";
+import { createMemoryKitRepository, createMemoryPracticeRepository, createMemorySessionRepository, createMemoryUserRepository } from "./support/memory-repositories";
 import { sampleKit } from "./support/sample-kit";
 
 const step = (name: string, status: ProgressEvent["status"]): ProgressEvent => ({ step: name, status, at: "2026-09-21T10:00:00.000Z" });
@@ -27,7 +27,7 @@ function setup(generate: GenerateFn = async () => sampleKit()) {
     logError: () => {},
     routers: [
       createAuthRouter({ auth, config }),
-      createKitRouter({ kits: createKitService({ kits: kitRepository, runner }), requireUser: createRequireUser(auth) }),
+      createKitRouter({ kits: createKitService({ kits: kitRepository, runner, practice: createMemoryPracticeRepository() }), requireUser: createRequireUser(auth) }),
     ],
   });
 

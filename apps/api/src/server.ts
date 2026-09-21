@@ -14,6 +14,9 @@ import { createKitRepository } from "./kits/repository";
 import { createKitRouter } from "./kits/routes";
 import { createKitService } from "./kits/service";
 import { createRequireUser } from "./middleware/require-user";
+import { createPracticeRepository } from "./practice/repository";
+import { createPracticeRouter } from "./practice/routes";
+import { createPracticeService } from "./practice/service";
 
 // The only file with side effects: it reads .env, connects to the database, assembles the
 // services from their dependencies, opens a port and handles shutdown.
@@ -52,6 +55,7 @@ const auth = createAuthService({
 });
 
 const kitRepository = createKitRepository(database.db);
+const practiceRepository = createPracticeRepository(database.db);
 const runner = createJobRunner({
   kits: kitRepository,
   // The same function the batch command calls. In production it refuses private addresses;
@@ -76,8 +80,9 @@ const app = createApp({
   config,
   routers: [
     createAuthRouter({ auth, config }),
-    createKitRouter({ kits: createKitService({ kits: kitRepository, runner }), requireUser }),
+    createKitRouter({ kits: createKitService({ kits: kitRepository, runner, practice: practiceRepository }), requireUser }),
     createBuilderRouter({ builder, requireUser }),
+    createPracticeRouter({ practice: createPracticeService({ kits: kitRepository, practice: practiceRepository }), requireUser }),
   ],
 });
 

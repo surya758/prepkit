@@ -2,6 +2,7 @@ import { MongoClient } from "mongodb";
 import type { Db } from "mongodb";
 import { ensureAuthIndexes } from "./auth/repository";
 import { ensureKitIndexes } from "./kits/repository";
+import { ensurePracticeIndexes } from "./practice/repository";
 
 export const DEFAULT_DATABASE = "prepkit";
 
@@ -30,5 +31,6 @@ export async function connectDatabase(uri: string): Promise<Database> {
   const db = client.db(databaseNameIn(uri) ?? DEFAULT_DATABASE);
   await ensureAuthIndexes(db);
   await ensureKitIndexes(db);
+  await ensurePracticeIndexes(db);
   return { db, close: () => client.close() };
 }
