@@ -15,5 +15,6 @@ export * from './llm/openai-client';
 export * from './llm/fake-provider';
 export * from './llm/provider-chain';
 export * from './llm/complete-json';
+export * from './llm/models';
 export * from './pipeline/pipeline-error';
 export * from './pipeline/run-step';
