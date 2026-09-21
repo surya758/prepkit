@@ -199,16 +199,16 @@ fifteen minutes. Token estimates assume four characters per token until the real
 
 ```
 packages/core   the pipeline, the kit contract and the builder's rules. No web framework, no database.
-apps/api        Express 5: authentication, kits, the job runner, the builder endpoints.
+apps/api        Express 5: authentication, kits, the job runner, the builder and practice endpoints.
 fixtures/       sample cases for the batch command
 ```
 
 **`packages/core`** is grouped by what the code is about: `retrieval/`, `llm/`, `pipeline/`,
-`coverage/`, `scheduling/`, `builder/`, `schema/`, `batch/` and `cli/`. Types and defaults live in
+`coverage/`, `scheduling/`, `builder/`, `practice/`, `schema/`, `batch/` and `cli/`. Types and defaults live in
 the file that owns them; only what several modules share — the kit schema — is a module of its own.
 Test helpers are published separately as `@prepkit/core/testing`.
 
-**`apps/api`** is layered, and grouped by feature (`auth/`, `kits/`), not by kind:
+**`apps/api`** is layered, and grouped by feature (`auth/`, `kits/`, `practice/`), not by kind:
 
 ```
 routes        HTTP only: validate with zod, call a service, shape the response
@@ -637,7 +637,65 @@ replaced by an empty one.
 
 ## Practice mode
 
-_Pending._
+The user steps through the kit's flashcards one at a time, reveals the answer, and says how it
+went: **1** forgot · **2** shaky · **3** good · **4** easy. One record is kept per user, kit and
+card — the latest confidence, how many times the card has been reviewed, and when.
+
+**The next session is a confidence-weighted sort**, not spaced repetition:
+
+1. cards never rated, in the kit's order — nothing is known about them yet
+2. then the lowest confidence first
+3. same confidence: the card reviewed longest ago
+4. still tied: the kit's order
+
+Why not SM-2 or another interval scheduler: those answer "when is this card due?", and their
+answers are measured in days and weeks. Someone using this application has an interview in a few
+days. A card rated "easy" would come due after the interview and one rated "good" barely before
+it, so nearly all of the machinery would never fire. Inside that window the useful question is
+"what am I worst at right now?", which is what the sort answers — and it stays explainable: the
+user can see why a card came first. Only the latest rating is kept for the same reason. How the
+user felt two sessions ago is not what tomorrow's session should be ordered by.
+
+A real run through the API, on a generated kit of 15 cards, after rating `f1` easy, `f2` forgot,
+`f3` shaky and `f4` good:
+
+```
+order   : f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f2 f3 f4 f1
+progress: 4/15 practised, 2 known
+reqs    : r1=weak, r2=weak, r3=not_started, r4=not_started, r5=not_started, r6=not_started
+```
+
+**What has been covered** is reported per card (unseen, weak, or known — a 3 or a 4) and per
+requirement, because "I have done 9 of 15 cards" says less than "I have not touched anything on
+system design":
+
+| Requirement status | Meaning |
+|---|---|
+| `no_cards` | No flashcard is linked to it. The deck is capped, so this can happen; the interface says so instead of showing an empty bar. |
+| `not_started` | It has cards, none rated. |
+| `weak` | At least one of its rated cards is a 1 or a 2 — whatever else is unseen. |
+| `in_progress` | Every rated card is known, some are still unseen. |
+| `confident` | Every card rated, all known. |
+
+All of this is three pure functions in `packages/core/src/practice/`; the API stores ratings and
+joins them to the kit.
+
+- **A rating is one atomic write** — an upsert that sets the confidence and increments the review
+  count — rather than read, compute, save. Run against Atlas, two first ratings of the same card
+  sent together came back as `reps=1` and `reps=2`; with a read first, both would have written 1.
+- **Practice and the builder do not know about each other.** Progress is always computed against
+  the kit as it is now, so a flashcard deleted in the builder simply drops out (in the run above,
+  deleting `f2` gave `3/14 practised` and `r1=confident`), and its old rating can never attach to a
+  different card because card ids are never reused. Deleting a kit deletes its ratings.
+- Ratings are per kit: `f1` in one kit and `f1` in another are different cards.
+
+| | |
+|---|---|
+| `GET /api/kits/:id/practice` | progress and the next order |
+| `PUT /api/kits/:id/practice/:cardId` `{ "confidence": 1–4 }` | record a rating; answers with the new progress and order |
+| `DELETE /api/kits/:id/practice` | start over |
+
+_Pending — the practice screen itself arrives with the web app._
 
 ## Long-running generation
 
@@ -882,14 +940,22 @@ in-memory repositories and a stand-in for the pipeline, so it too needs no datab
 network. That covers the error envelope, authentication (cookie attributes, expiry, logout on one
 device only, the origin check, the attempt limit), kits (202 without waiting, duplicates and
 double-clicks, the idempotency key, per-row upload results, progress while running, retry,
-ownership on every route) and the builder (every edit, every refusal leaving the revision
+ownership on every route), practice (ownership, unknown cards, two ratings arriving together, a
+card deleted after it was rated, ratings removed with their kit) and the builder (every edit, every refusal leaving the revision
 untouched, two simultaneous edits, and an edit made while a regeneration is in flight). The
 builder's rules were also mutation-checked: making edited items unlocked, or letting regeneration
 remove locked questions, fails seven and five tests respectively.
 
+Those tests reach the app through a server bound to `127.0.0.1`, not through supertest's default
+of "any address, any free port". On macOS that default can be handed a port another program —
+an editor extension, here — already holds on 127.0.0.1, and that program then answers the test.
+It surfaced as one failed run in about twenty (a 426 from a WebSocket server, a 401 in a foreign
+format); `apps/api/test/support/http.ts` explains the fix.
+
 The MongoDB repositories, which the in-memory tests cannot exercise, were run against a real Atlas
 cluster: registration, the duplicate-key path, login, logout, a full kit generated through the API
-with its progress read back, and edits and regenerations through the builder.
+with its progress read back, edits and regenerations through the builder, and a practice session
+including simultaneous ratings and the clean-up when a kit is deleted.
 
 The pipeline is tested with a scripted model that answers according to which step is asking, since
 steps run in parallel and a plain list of replies could be consumed in the wrong order. That makes
