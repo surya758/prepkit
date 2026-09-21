@@ -187,8 +187,37 @@ rate limiting, and duplicate submissions are written up as each is implemented._
 
 ## Security
 
-_Pending — written with the fetcher (URL validation, private-address rejection, content limits) and
-the LLM layer (treating fetched text as data)._
+Every outbound request goes through one function,
+[`fetchPage`](packages/core/src/retrieval/fetch-page.ts), so the limits exist in exactly one place.
+
+**Where it may connect** — [`url-guard.ts`](packages/core/src/retrieval/url-guard.ts). Only http
+and https; no credentials embedded in the URL. Private, loopback, link-local (including the cloud
+metadata address `169.254.169.254`), carrier-NAT, multicast and reserved ranges are rejected for
+IPv4 and IPv6, whether the address is written literally, written in an alternative spelling
+(`2130706433`, `0x7f.0.0.1`, `127.1`), or reached through DNS. If a name resolves to several
+addresses, all of them must be public. The check runs again on **every redirect hop**, because a
+public page can redirect to a private address.
+
+The brief asks for private addresses to be rejected in production, and also serves the evaluation
+sites from `localhost`. `allowPrivateHosts` is therefore an argument the caller passes in code,
+not an environment variable: the batch command is a local operator tool and passes `true`; the
+deployed API passes `false`. There is no flag for anyone to forget or mis-set.
+
+**What it accepts** — one 10-second deadline per attempt covering redirects, headers and body; at
+most 3 redirects; HTML, plain text and XML only; the body is streamed and cut off at 1.5 MB rather
+than buffered, with the result flagged `truncated`.
+
+**Failure is a value.** `fetchPage` never throws. A 404, a timeout or a blocked URL comes back as
+`{ ok: false, code, message }`, which is what lets the pipeline skip and report one source instead
+of failing the run. 429, 5xx, timeouts and network errors are retried up to 3 attempts with
+exponential backoff and jitter, honouring `Retry-After`; a 404 is not retried.
+
+**Known limitation:** the guard validates the addresses DNS returns, and the connection then
+resolves the name again. A hostile DNS server could answer differently the second time (DNS
+rebinding). Closing that gap means pinning the socket to the validated address, which was left out
+of scope.
+
+_Pending — treating fetched text as data rather than instructions is written with the LLM layer._
 
 ## Creative feature
 
