@@ -3,13 +3,26 @@ import { AppError, conflict, notFound } from "../errors";
 import type { JobRunner } from "./job-runner";
 import { toSummary } from "./repository";
 import type { KitInput, KitRecord, KitRepository, KitSummary } from "./repository";
+import { createKitSchema } from "./schemas";
 
 // The rules about kits. No HTTP and no MongoDB syntax in here.
 
 export interface CreateKitInput extends KitInput {
   /** Generate a fresh kit even though one already exists for this posting. */
   force?: boolean;
+  /**
+   * Sent by the interface with a forced request: one id per press of "generate fresh anyway".
+   * A forced kit is exempt from the content check, which would also exempt it from
+   * double-click protection; the key puts that back. Ignored when force is not set.
+   */
+  idempotencyKey?: string;
 }
+
+/** The outcome for one row of an uploaded file. */
+export type BulkResult =
+  | { index: number; status: "created"; kit: KitSummary }
+  | { index: number; status: "duplicate"; kitId?: string; message: string }
+  | { index: number; status: "invalid"; message: string; details?: unknown };
 
 export interface KitServiceDependencies {
   kits: KitRepository;
@@ -39,10 +52,12 @@ export function createKitService({ kits, runner, now = () => new Date() }: KitSe
   return {
     /** Records the kit as queued, hands it to the runner, and returns without waiting for it. */
     async create(userId: string, input: CreateKitInput): Promise<KitSummary> {
-      const { force, ...kitInput } = input;
+      const { force, idempotencyKey, ...kitInput } = input;
       const base = fingerprintOf(kitInput);
-      // A forced kit gets a fingerprint of its own, so it can live alongside the original.
-      const fingerprint = force ? `${base}:${randomUUID()}` : base;
+      // Content identity recognises a repeat. A forced kit is a wanted repeat, so it gets a
+      // fingerprint of its own and can live alongside the original — built from the request's
+      // idempotency key, so that the same press arriving twice still makes one kit.
+      const fingerprint = force ? `${base}:${idempotencyKey ?? randomUUID()}` : base;
       const at = now();
 
       const record = await kits.insert({
@@ -69,6 +84,35 @@ export function createKitService({ kits, runner, now = () => new Date() }: KitSe
 
       runner.enqueue(record.id);
       return toSummary(record);
+    },
+
+    /** Several postings at once. Each row is validated and created on its own. */
+    async createMany(userId: string, items: unknown[]): Promise<BulkResult[]> {
+      const results: BulkResult[] = [];
+      for (const [index, item] of items.entries()) {
+        const parsed = createKitSchema.safeParse(item);
+        if (!parsed.success) {
+          results.push({
+            index,
+            status: "invalid",
+            message: "Some fields are missing or invalid",
+            details: parsed.error.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message })),
+          });
+          continue;
+        }
+        try {
+          // An uploaded file never forces: a row that repeats an existing kit is reported, not regenerated.
+          const { force: _force, ...kitInput } = parsed.data;
+          results.push({ index, status: "created", kit: await this.create(userId, kitInput) });
+        } catch (error) {
+          if (error instanceof AppError && error.code === "KIT_ALREADY_EXISTS") {
+            results.push({ index, status: "duplicate", kitId: (error.details as { kitId?: string } | undefined)?.kitId, message: error.message });
+          } else {
+            throw error;
+          }
+        }
+      }
+      return results;
     },
 
     list(userId: string): Promise<KitSummary[]> {
