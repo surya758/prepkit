@@ -1,5 +1,6 @@
 "use client";
 
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import { KitStatusBadge } from "@/components/kit-status-badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,15 @@ export default function KitsPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-4 py-8 sm:px-8 sm:py-10">
-      <h1 className="font-display text-4xl">Your kits</h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="font-display text-4xl">Your kits</h1>
+        <Button asChild>
+          <Link href="/kits/new">
+            <Plus aria-hidden="true" />
+            New kit
+          </Link>
+        </Button>
+      </div>
 
       {kits.isPending ? (
         <ul aria-busy="true" aria-label="Loading your kits" className="flex flex-col gap-3">
@@ -38,6 +47,9 @@ export default function KitsPage() {
           <p className="mx-auto max-w-md text-muted-foreground">
             A kit is built from a job description and the company&apos;s website: a brief, the questions to expect, flashcards and a day-by-day schedule.
           </p>
+          <Button asChild className="mx-auto mt-2">
+            <Link href="/kits/new">Create your first kit</Link>
+          </Button>
         </div>
       ) : (
         <ul className="flex flex-col gap-3">

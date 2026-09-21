@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
 
 export type KitStatus = "queued" | "running" | "ready" | "failed";
@@ -28,5 +28,29 @@ export function useKits() {
     // Generation happens on the server whether or not anyone is watching. The list re-asks only
     // while something is still generating, and stops by itself when the last kit settles.
     refetchInterval: (query) => (query.state.data?.some(isGenerating) ? POLL_MS : false),
+  });
+}
+
+export interface CreateKitInput {
+  jd: string;
+  companyUrl: string;
+  days: number | undefined;
+  /**
+   * Set when the user has been told a kit already exists and asked for a fresh one anyway. The
+   * key is made once per such decision, so the same decision arriving twice makes one kit.
+   */
+  fresh?: { idempotencyKey: string };
+}
+
+export function useCreateKit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ fresh, ...input }: CreateKitInput) =>
+      api<{ kit: KitSummary }>("/kits", {
+        method: "POST",
+        body: fresh ? { ...input, force: true } : input,
+        headers: fresh ? { "Idempotency-Key": fresh.idempotencyKey } : undefined,
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["kits"] }),
   });
 }
