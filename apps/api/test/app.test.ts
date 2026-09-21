@@ -1,6 +1,6 @@
 import { PipelineError } from "@prepkit/core";
 import { Router } from "express";
-import request from "supertest";
+import { request } from "./support/http";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { createApp } from "../src/app";

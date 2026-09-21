@@ -1,4 +1,5 @@
-import request from "supertest";
+import type { Response } from "supertest";
+import { request } from "./support/http";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app";
 import { SESSION_COOKIE } from "../src/auth/cookies";
@@ -21,7 +22,7 @@ function setup(env: "test" | "production" = "test") {
 }
 
 const ada = { email: "ada@example.com", password: "analytical-engine" };
-const sessionCookie = (response: request.Response) =>
+const sessionCookie = (response: Response) =>
   (response.headers["set-cookie"] as unknown as string[] | undefined)?.find((c) => c.startsWith(`${SESSION_COOKIE}=`)) ?? "";
 
 describe("POST /api/auth/register", () => {
