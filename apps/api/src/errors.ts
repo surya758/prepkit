@@ -1,4 +1,4 @@
-import { PipelineError } from "@prepkit/core";
+import { KitEditError, PipelineError } from "@prepkit/core";
 import { ZodError } from "zod";
 
 // Routes throw; one middleware answers. Express 5 forwards a rejected promise from an async
@@ -41,6 +41,9 @@ const PIPELINE_STATUS: Record<string, number> = {
   LLM_REQUEST_REJECTED: 502,
   LLM_INVALID_JSON: 502,
   INVALID_KIT: 502,
+  // Regeneration: the request was understood, but this kit gives nothing to work from.
+  NOTHING_TO_GENERATE_FROM: 409,
+  COMPANY_UNREACHABLE: 409,
 };
 
 // body-parser marks its errors with a `type`; these are the two a client can cause.
@@ -74,6 +77,13 @@ export function toHttpError(error: unknown): HttpError {
         },
       },
     };
+  }
+
+  // A change the builder's rules refused: an item that is not there, or one that would leave
+  // the kit invalid. The message is written for the person making the edit.
+  if (error instanceof KitEditError) {
+    const status = error.code === "ITEM_NOT_FOUND" ? 404 : 400;
+    return { status, unexpected: false, body: { error: { code: error.code, message: error.message } } };
   }
 
   if (error instanceof PipelineError) {

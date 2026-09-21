@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { createChainFromEnv, generateKit } from "@prepkit/core";
+import { createChainFromEnv, generateKit, regenerateBriefFresh, regenerateCategoryDrafts } from "@prepkit/core";
 import type { LlmProvider } from "@prepkit/core";
 import { createApp } from "./app";
 import { createSessionRepository, createUserRepository } from "./auth/repository";
@@ -7,6 +7,8 @@ import { createAuthRouter } from "./auth/routes";
 import { createAuthService } from "./auth/service";
 import { loadConfig } from "./config";
 import { connectDatabase } from "./db";
+import { createBuilderRouter } from "./kits/builder-routes";
+import { createBuilderService } from "./kits/builder-service";
 import { createJobRunner } from "./kits/job-runner";
 import { createKitRepository } from "./kits/repository";
 import { createKitRouter } from "./kits/routes";
@@ -61,11 +63,21 @@ const runner = createJobRunner({
 const interrupted = await runner.failInterrupted();
 if (interrupted > 0) console.log(`[api] marked ${interrupted} kit(s) interrupted by the last restart`);
 
+const requireUser = createRequireUser(auth);
+const builder = createBuilderService({
+  kits: kitRepository,
+  regenerate: {
+    categoryDrafts: async (kit, category, lockedCount) => (await regenerateCategoryDrafts(llm, kit, category, lockedCount)).drafts,
+    brief: async (kit) => (await regenerateBriefFresh(llm, kit, { allowPrivateHosts: config.allowPrivateHosts })).brief,
+  },
+});
+
 const app = createApp({
   config,
   routers: [
     createAuthRouter({ auth, config }),
-    createKitRouter({ kits: createKitService({ kits: kitRepository, runner }), requireUser: createRequireUser(auth) }),
+    createKitRouter({ kits: createKitService({ kits: kitRepository, runner }), requireUser }),
+    createBuilderRouter({ builder, requireUser }),
   ],
 });
 

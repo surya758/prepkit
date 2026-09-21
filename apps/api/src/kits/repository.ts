@@ -1,4 +1,5 @@
-import type { Kit, ProgressEvent } from "@prepkit/core";
+import { initialMeta } from "@prepkit/core";
+import type { Kit, KitMeta, ProgressEvent } from "@prepkit/core";
 import { ObjectId } from "mongodb";
 import type { Collection, Db } from "mongodb";
 
@@ -25,6 +26,10 @@ export interface KitRecord {
   progress: ProgressEvent[];
   error: { code: string; message: string } | null;
   kit: Kit | null;
+  /** Which items the user wrote, changed or pinned. Beside the kit, never inside it. */
+  meta: KitMeta | null;
+  /** Goes up by one on every saved change. A save names the revision it was based on. */
+  rev: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -59,6 +64,12 @@ export interface KitRepository {
   appendProgress(id: string, event: ProgressEvent, at: Date): Promise<void>;
   markReady(id: string, kit: Kit, at: Date): Promise<void>;
   markFailed(id: string, error: { code: string; message: string }, at: Date): Promise<void>;
+  /**
+   * Saves an edited kit only if nobody else has saved since `expectedRev` was read. False means
+   * "someone got there first": the caller loads the kit again and re-applies its change, so two
+   * changes landing together are both kept instead of the second overwriting the first.
+   */
+  saveEdited(id: string, userId: string, expectedRev: number, kit: Kit, meta: KitMeta, at: Date): Promise<boolean>;
   /** Back to queued with a clean slate, for a retry. False when the kit is not the user's or not failed. */
   requeueOwned(id: string, userId: string, at: Date): Promise<boolean>;
   /** At startup: anything still queued or running belonged to a process that is gone. */
@@ -147,17 +158,26 @@ export function createKitRepository(db: Db): KitRepository {
       await kits.updateOne({ _id: new ObjectId(id) }, { $push: { progress: event }, $set: { updatedAt: at } });
     },
     async markReady(id, kit, at) {
-      await kits.updateOne({ _id: new ObjectId(id) }, { $set: { status: "ready", kit, error: null, updatedAt: at } });
+      await kits.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { status: "ready", kit, meta: initialMeta(kit), error: null, updatedAt: at }, $inc: { rev: 1 } },
+      );
     },
     async markFailed(id, error, at) {
       await kits.updateOne({ _id: new ObjectId(id) }, { $set: { status: "failed", error, updatedAt: at } });
+    },
+    async saveEdited(id, userId, expectedRev, kit, meta, at) {
+      const _id = objectId(id);
+      if (!_id) return false;
+      const result = await kits.updateOne({ _id, userId, status: "ready", rev: expectedRev }, { $set: { kit, meta, updatedAt: at }, $inc: { rev: 1 } });
+      return result.modifiedCount === 1;
     },
     async requeueOwned(id, userId, at) {
       const _id = objectId(id);
       if (!_id) return false;
       const result = await kits.updateOne(
         { _id, userId, status: "failed" },
-        { $set: { status: "queued", error: null, progress: [], updatedAt: at } },
+        { $set: { status: "queued", error: null, progress: [], kit: null, meta: null, updatedAt: at } },
       );
       return result.modifiedCount === 1;
     },

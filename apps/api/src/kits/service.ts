@@ -68,6 +68,8 @@ export function createKitService({ kits, runner, now = () => new Date() }: KitSe
         progress: [],
         error: null,
         kit: null,
+        meta: null,
+        rev: 0,
         createdAt: at,
         updatedAt: at,
       });
