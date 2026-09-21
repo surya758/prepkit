@@ -22,4 +22,5 @@ export * from './pipeline/steps/jd-profile';
 export * from './pipeline/steps/company-research';
 export * from './pipeline/steps/questions';
 export * from './pipeline/steps/question-bank';
+export * from './pipeline/steps/flashcards';
 export * from './pipeline/generate-kit';

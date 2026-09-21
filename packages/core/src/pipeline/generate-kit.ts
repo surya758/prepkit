@@ -9,6 +9,7 @@ import { PipelineError } from "./pipeline-error";
 import { createContext, runStep } from "./run-step";
 import type { ProgressEvent } from "./run-step";
 import { briefWithoutResearch, researchCompany } from "./steps/company-research";
+import { generateFlashcards } from "./steps/flashcards";
 import { extractJdProfile } from "./steps/jd-profile";
 import { buildQuestionBank } from "./steps/question-bank";
 
@@ -107,6 +108,10 @@ export async function generateKit(input: KitInput, options: GenerateKitOptions):
 
   // Draft per category, check coverage, repair the gaps, check again. Each model call inside
   // is its own step, so one category failing or running out of time costs only that category.
+  // The brief for an unreadable company is a fixed statement, not research; it must never be
+  // fed to later steps as if it were facts about the company.
+  const companyResearched = research.brief.sources.length > 0;
+
   const bank = await buildQuestionBank(
     options.llm,
     {
@@ -114,16 +119,31 @@ export async function generateKit(input: KitInput, options: GenerateKitOptions):
       roleTitle: profile.title,
       seniority: profile.seniority,
       responsibilities: profile.responsibilities,
-      companyResearched: research.brief.sources.length > 0,
-      companyWhatTheyDo: research.brief.sources.length > 0 ? research.brief.what_they_do : "",
+      companyResearched,
+      companyWhatTheyDo: companyResearched ? research.brief.what_they_do : "",
       hiringProcess: research.hiringProcess,
     },
     ctx,
   );
   const { questions } = bank;
 
-  // No flashcard step exists yet, so a kit has none.
-  const flashcards: Flashcard[] = [];
+  // The most dispensable model step: a kit without flashcards is still a usable kit.
+  const flashcards = await runStep(
+    ctx,
+    { name: "flashcards", policy: "degrade", failureCode: "FLASHCARDS_FAILED", fallback: [] as Flashcard[], skipPastDeadline: true },
+    () =>
+      generateFlashcards(
+        options.llm,
+        {
+          requirements: profile.requirements,
+          roleTitle: profile.title,
+          seniority: profile.seniority,
+          companyFacts: companyResearched ? `${research.brief.summary}\n${research.brief.what_they_do}` : "",
+          hiringProcess: research.hiringProcess,
+        },
+        ctx,
+      ),
+  );
 
   // From here on it is code only, and it always runs — even past the deadline — so a late
   // kit is still a complete, valid kit. The check is repeated on the final question list so

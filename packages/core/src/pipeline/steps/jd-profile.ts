@@ -13,6 +13,7 @@ import type { PipelineContext } from "../run-step";
 
 export const MAX_JD_CHARS = 12_000;
 export const THIN_JD_CHARS = 200;
+const MIN_REQUIREMENTS_FOR_SHORT_JD = 3;
 const MAX_REQUIREMENTS = 30;
 const MAX_RESPONSIBILITIES = 10;
 
@@ -166,7 +167,9 @@ export async function extractJdProfile(llm: LlmProvider, jd: string, ctx: Pipeli
     evidence[id] = item.evidence;
   });
 
-  const thin = description.length < THIN_JD_CHARS || requirements.length === 0;
+  // Short is not the same as thin: a terse posting with three clear requirements is fine.
+  // Thin means there was little to extract — nothing at all, or a stub that yielded one or two.
+  const thin = requirements.length === 0 || (description.length < THIN_JD_CHARS && requirements.length < MIN_REQUIREMENTS_FOR_SHORT_JD);
   if (thin) {
     ctx.warnings.push({
       code: "JD_THIN",
