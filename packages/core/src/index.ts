@@ -24,3 +24,4 @@ export * from './pipeline/steps/questions';
 export * from './pipeline/steps/question-bank';
 export * from './pipeline/steps/flashcards';
 export * from './pipeline/generate-kit';
+export * from './batch/run-batch';

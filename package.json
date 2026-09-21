@@ -10,6 +10,8 @@
     "apps/*"
   ],
   "scripts": {
+    "evaluate": "tsx packages/core/src/cli/evaluate.ts",
+    "fixtures": "tsx packages/core/test/fixtures/serve-company-sites.ts",
     "test": "npm test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
