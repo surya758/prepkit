@@ -49,7 +49,7 @@ export function goodFlashcards(request: LlmRequest): FakeReply {
 }
 
 export interface Script {
-  profile?: FakeReply;
+  profile?: FakeReply | ((request: LlmRequest) => FakeReply);
   research?: FakeReply;
   questions?: (request: LlmRequest) => FakeReply;
   flashcards?: FakeReply | ((request: LlmRequest) => FakeReply);
@@ -58,7 +58,10 @@ export interface Script {
 export function scriptedModel(script: Script, name?: string): FakeProvider {
   return createFakeProvider((request) => {
     const step = stepOf(request);
-    if (step === "profile") return script.profile ?? new Error("no profile reply scripted");
+    if (step === "profile") {
+      const profile = script.profile ?? new Error("no profile reply scripted");
+      return typeof profile === "function" ? profile(request) : profile;
+    }
     if (step === "research") return script.research ?? new Error("no research reply scripted");
     if (step === "flashcards") {
       const cards = script.flashcards ?? goodFlashcards;
