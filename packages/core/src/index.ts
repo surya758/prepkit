@@ -5,5 +5,6 @@ export * from './scheduling/schedule';
 export * from './retrieval/url-guard';
 export * from './retrieval/fetch-page';
 export * from './retrieval/robots';
+export * from './retrieval/clean-html';
 export * from './pipeline/pipeline-error';
 export * from './pipeline/run-step';
