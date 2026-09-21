@@ -166,9 +166,9 @@ common way to lose points, so there are four layers, each handling one kind of t
    limiter per model, shared by all kits being generated, enforcing requests **and** tokens per
    minute over a sliding window, spaced out rather than bursting. Token estimates are replaced by
    the provider's real count after each call.
-2. `openai-client.ts` — a 429 pauses **every** caller for `Retry-After` before retrying; 5xx,
-   timeouts and network errors back off; a bad key or model id fails at once with the provider's
-   own message.
+2. `openai-client.ts` — a 429 pauses **every** caller for `Retry-After` before retrying; 5xx
+   and network errors back off; a timeout backs off or hands over (see below); a bad key or model
+   id fails at once with the provider's own message.
 3. [`complete-json.ts`](packages/core/src/llm/complete-json.ts) — every reply must satisfy a zod
    schema. Fenced, wrapped and trailing-comma replies are repaired locally at no cost. Otherwise
    the model is re-asked **once**, quoting its reply and naming the exact fields that were wrong,
@@ -178,6 +178,17 @@ common way to lose points, so there are four layers, each handling one kind of t
    cleared by its first success, so a rate-limited primary costs its retries once rather than on
    every one of the next twenty calls. A model with another behind it gets 2 attempts; the last one
    gets 4. Bugs are rethrown, never masked by a fallback.
+
+**Slow is not the same as down.** Running `evaluate` from a fresh clone happened to coincide with
+the primary model answering a one-word request in 45 to 60 seconds — HTTP 200, no rate limit, only
+slow — while the second model answered in under two. With a 60-second timeout that was retried,
+each kit could wait up to 120 of its 150 seconds before the fallback was even tried, and three of
+the five kits came out valid and honestly labelled (`DEADLINE_REACHED`) but with no flashcards. So
+a timeout is now treated differently from other failures: a model with a backup gets **25 seconds,
+once**, and hands over; the cooldown above then keeps the rest of the kit off it. The last model
+keeps 60 seconds and its retries, because it has nobody to hand over to, and a dropped connection
+is still retried everywhere. With the primary artificially held at 45 seconds, the same kit went
+from exhausting its budget to finishing in 59 seconds with all 15 flashcards.
 
 At 12 requests per minute the limiter releases the ~40 calls of a five-case batch in about two and
 a half minutes, against the brief's limit of fifteen. This was checked against the provider, not
