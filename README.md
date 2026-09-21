@@ -54,16 +54,78 @@ Requires Node.js 22 or later (`.nvmrc` provided).
 
 ```bash
 npm install
-npm test          # all workspaces
+cp .env.example .env    # then add your key(s)
+npm test                # all workspaces; needs no key and no network
 npm run typecheck
 ```
 
-_Pending — environment variables, running the app locally, the deployed URLs, and the exact
+| Variable | Required | What it is for |
+|---|---|---|
+| `GEMINI_API_KEY` | yes | Google AI Studio free-tier key. Runs the first two models in the chain. |
+| `GROQ_API_KEY` | no | Groq free-tier key. Adds a third model from a different provider as a last resort. |
+
+_Pending — the remaining environment variables, running the app locally, the deployed URLs, and the exact
 `npm run evaluate` commands are added when the batch entry point and the apps land._
 
 ## LLM provider and model
 
-_Pending — written when the LLM layer lands, with the free-tier limits it was tuned against._
+Three models, tried in order, all on free tiers. Only the first key is required.
+
+| # | Model | Provider | Takes over when | Free-tier limits at the time of writing |
+|---|---|---|---|---|
+| 1 | `gemini-3.5-flash-lite` | Google AI Studio | normal operation | 15 req/min · 250K tokens/min · 500 req/day |
+| 2 | `gemini-3.1-flash-lite` | Google AI Studio | model 1 is rate-limited — same key, but Google counts quota per model | 15 req/min · 250K tokens/min · 500 req/day |
+| 3 | `qwen/qwen3.8-27b` | Groq | Google itself is the problem (outage, revoked key) | 30 req/min · 8K tokens/min · 1,000 req/day |
+
+**How they were chosen.** Every candidate was given the same job descriptions and asked for the
+stated requirements in JSON. The three above returned exactly what the text said, with "required"
+and "nice to have" told apart and nothing added. The rest were ruled out by what they did, not by
+reputation:
+
+| Tried | Outcome |
+|---|---|
+| Gemini 3.x Flash (non-Lite) | 20 requests per day on the free tier — about two kits |
+| A larger hosted model on another free tier | HTTP 403: not available on the free plan, despite being listed with limits |
+| Two mid-size models on that tier | HTTP 429 on the very first request |
+| Two small models on that tier | Answered, but from "must have 5+ years of React, TypeScript required" returned ten requirements including Redux, Jest, Webpack and Git — eight of them invented, which is the exact failure the brief penalises most |
+| Gemma 4 26B | Ignored JSON mode and printed its reasoning until the output limit |
+| Gemma 4 31B, `gpt-oss-20b` | HTTP 500; provider-side JSON validation failure |
+
+**One client, no SDKs.** All three providers accept the OpenAI chat-completions format, so there is
+a single `fetch`-based client
+([`openai-client.ts`](packages/core/src/llm/openai-client.ts)). Secrets are the only thing in the
+environment (`GEMINI_API_KEY`, optional `GROQ_API_KEY`). The provider URLs, the order of the chain
+and each model's limits are in [`models.ts`](packages/core/src/llm/models.ts): a base URL and a key
+belong to a provider and are stated once; rate limits belong to a model and are stated per model. A
+model whose provider has no key is left out, so a single Gemini key runs models 1 and 2.
+
+**Staying inside the limits.** The brief calls a pipeline that falls over on "slow down" the most
+common way to lose points, so there are four layers, each handling one kind of trouble:
+
+1. [`rate-limiter.ts`](packages/core/src/llm/rate-limiter.ts) — every call waits here first. One
+   limiter per model, shared by all kits being generated, enforcing requests **and** tokens per
+   minute over a sliding window, spaced out rather than bursting. Token estimates are replaced by
+   the provider's real count after each call.
+2. `openai-client.ts` — a 429 pauses **every** caller for `Retry-After` before retrying; 5xx,
+   timeouts and network errors back off; a bad key or model id fails at once with the provider's
+   own message.
+3. [`complete-json.ts`](packages/core/src/llm/complete-json.ts) — every reply must satisfy a zod
+   schema. Fenced, wrapped and trailing-comma replies are repaired locally at no cost. Otherwise
+   the model is re-asked **once**, quoting its reply and naming the exact fields that were wrong,
+   with more room if the reply was cut off.
+4. [`provider-chain.ts`](packages/core/src/llm/provider-chain.ts) — if a model still fails, the next
+   takes over. A model that has just failed is skipped for 60 seconds, doubling up to 10 minutes and
+   cleared by its first success, so a rate-limited primary costs its retries once rather than on
+   every one of the next twenty calls. A model with another behind it gets 2 attempts; the last one
+   gets 4. Bugs are rethrown, never masked by a fallback.
+
+At 12 requests per minute the limiter releases the ~40 calls of a five-case batch in about two and
+a half minutes, against the brief's limit of fifteen.
+
+**Known limits.** Requests-per-day cannot be tracked from inside one process, so hitting it shows up
+as a 429 and takes the cooldown-and-fallback path. Models 1 and 2 share a provider, so only Groq
+covers a Google outage, and its 8K tokens per minute could carry a few kits but not a full batch in
+fifteen minutes. Token estimates assume four characters per token until the real count arrives.
 
 ## Architecture
 
