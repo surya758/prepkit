@@ -111,6 +111,11 @@ export function createOpenAiClient(options: OpenAiClientOptions): LlmProvider {
       if (!response.ok) {
         reservation.settle(0);
         const detail = (await response.text().catch(() => "")).slice(0, 300);
+        // Groq validates JSON mode on its side and answers 400 when the model's output does
+        // not parse. The request was fine; the generation was not, so it can be asked again.
+        if (response.status === 400 && detail.includes("json_validate_failed")) {
+          throw new PipelineError("LLM_INVALID_JSON", `${model} generated invalid JSON, rejected by the provider`);
+        }
         // A bad key or a malformed request will not get better by asking again.
         const code = response.status === 401 || response.status === 403 ? "LLM_AUTH_FAILED" : "LLM_REQUEST_REJECTED";
         throw new PipelineError(code, `${model} answered HTTP ${response.status}: ${detail}`);
