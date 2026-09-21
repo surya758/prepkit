@@ -28,3 +28,4 @@ export * from './pipeline/generate-kit';
 export * from './batch/run-batch';
 export * from './builder/kit-editor';
 export * from './builder/regenerate';
+export * from './practice/practice';
