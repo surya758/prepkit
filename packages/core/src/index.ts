@@ -21,4 +21,5 @@ export * from './pipeline/grounding';
 export * from './pipeline/steps/jd-profile';
 export * from './pipeline/steps/company-research';
 export * from './pipeline/steps/questions';
+export * from './pipeline/steps/question-bank';
 export * from './pipeline/generate-kit';

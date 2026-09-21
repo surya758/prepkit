@@ -3,13 +3,14 @@ import type { LlmProvider } from "../llm/provider";
 import { crawlSite } from "../retrieval/crawl-site";
 import type { CrawlOptions, CrawlResult } from "../retrieval/crawl-site";
 import { validateKit } from "../schema/kit";
-import type { Flashcard, Kit, Question } from "../schema/kit";
+import type { Flashcard, Kit } from "../schema/kit";
 import { buildSchedule } from "../scheduling/schedule";
 import { PipelineError } from "./pipeline-error";
 import { createContext, runStep } from "./run-step";
 import type { ProgressEvent } from "./run-step";
 import { briefWithoutResearch, researchCompany } from "./steps/company-research";
 import { extractJdProfile } from "./steps/jd-profile";
+import { buildQuestionBank } from "./steps/question-bank";
 
 // The pipeline. One function, called by the web API and by the batch command alike, so
 // what gets evaluated is what users get. It owns the sequence and what each step's failure
@@ -104,13 +105,29 @@ export async function generateKit(input: KitInput, options: GenerateKitOptions):
     () => researchCompany(options.llm, crawl, ctx),
   );
 
-  // No question or flashcard step exists yet, so a kit has none, and the coverage check
-  // below reports every requirement as uncovered — which is the truth at this point.
-  const questions: Question[] = [];
+  // Draft per category, check coverage, repair the gaps, check again. Each model call inside
+  // is its own step, so one category failing or running out of time costs only that category.
+  const bank = await buildQuestionBank(
+    options.llm,
+    {
+      requirements: profile.requirements,
+      roleTitle: profile.title,
+      seniority: profile.seniority,
+      responsibilities: profile.responsibilities,
+      companyResearched: research.brief.sources.length > 0,
+      companyWhatTheyDo: research.brief.sources.length > 0 ? research.brief.what_they_do : "",
+      hiringProcess: research.hiringProcess,
+    },
+    ctx,
+  );
+  const { questions } = bank;
+
+  // No flashcard step exists yet, so a kit has none.
   const flashcards: Flashcard[] = [];
 
   // From here on it is code only, and it always runs — even past the deadline — so a late
-  // kit is still a complete, valid kit.
+  // kit is still a complete, valid kit. The check is repeated on the final question list so
+  // that what the kit reports is computed from what the kit contains.
   const coverage = await runStep(ctx, { name: "coverage_check", policy: "fatal" }, async () =>
     checkCoverage(profile.requirements, questions),
   );
@@ -140,7 +157,7 @@ export async function generateKit(input: KitInput, options: GenerateKitOptions):
       questions,
       flashcards,
       schedule,
-      coverage: { uncovered_requirement_ids: coverage.uncovered, passes: 1 },
+      coverage: { uncovered_requirement_ids: coverage.uncovered, passes: bank.passes },
       warnings: ctx.warnings,
       research_log: ctx.researchLog,
       hiring_process: research.hiringProcess,
