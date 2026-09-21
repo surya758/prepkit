@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Session, SessionRepository, User, UserRepository } from "../../src/auth/repository";
+import { toSummary } from "../../src/kits/repository";
+import type { KitRecord, KitRepository } from "../../src/kits/repository";
 
 // In-memory implementations of the repository interfaces. The API's tests run against these,
 // so `npm test` needs no database, no downloaded binary and no network. They honour the same
@@ -39,6 +41,78 @@ export function createMemorySessionRepository(): SessionRepository & { all(): Se
     },
     async delete(tokenHash) {
       sessions.delete(tokenHash);
+    },
+  };
+}
+
+export function createMemoryKitRepository(): KitRepository & { all(): KitRecord[] } {
+  const kits = new Map<string, KitRecord>();
+  const copy = (record: KitRecord): KitRecord => structuredClone(record);
+  const update = (id: string, change: (record: KitRecord) => void) => {
+    const record = kits.get(id);
+    if (record) change(record);
+  };
+
+  return {
+    all: () => [...kits.values()].map(copy),
+    async insert(record) {
+      // The same contract as the unique index on (userId, fingerprint).
+      if ([...kits.values()].some((k) => k.userId === record.userId && k.fingerprint === record.fingerprint)) return null;
+      const stored: KitRecord = { id: randomUUID(), ...structuredClone(record) };
+      kits.set(stored.id, stored);
+      return copy(stored);
+    },
+    async findOwned(id, userId) {
+      const record = kits.get(id);
+      return record && record.userId === userId ? copy(record) : null;
+    },
+    async findByFingerprint(userId, fingerprint) {
+      const record = [...kits.values()].find((k) => k.userId === userId && k.fingerprint === fingerprint);
+      return record ? copy(record) : null;
+    },
+    async listOwned(userId) {
+      return [...kits.values()]
+        .filter((k) => k.userId === userId)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .map(toSummary);
+    },
+    async deleteOwned(id, userId) {
+      const record = kits.get(id);
+      if (!record || record.userId !== userId) return false;
+      return kits.delete(id);
+    },
+    async findForJob(id) {
+      const record = kits.get(id);
+      return record ? copy(record) : null;
+    },
+    async claim(id, at) {
+      const record = kits.get(id);
+      if (!record || record.status !== "queued") return null;
+      Object.assign(record, { status: "running", updatedAt: at });
+      return copy(record);
+    },
+    async appendProgress(id, event, at) {
+      update(id, (r) => {
+        r.progress.push(structuredClone(event));
+        r.updatedAt = at;
+      });
+    },
+    async markReady(id, kit, at) {
+      update(id, (r) => Object.assign(r, { status: "ready", kit: structuredClone(kit), error: null, updatedAt: at }));
+    },
+    async markFailed(id, error, at) {
+      update(id, (r) => Object.assign(r, { status: "failed", error, updatedAt: at }));
+    },
+    async requeueOwned(id, userId, at) {
+      const record = kits.get(id);
+      if (!record || record.userId !== userId || record.status !== "failed") return false;
+      Object.assign(record, { status: "queued", error: null, progress: [], updatedAt: at });
+      return true;
+    },
+    async failUnfinished(error, at) {
+      const unfinished = [...kits.values()].filter((k) => k.status === "queued" || k.status === "running");
+      for (const record of unfinished) Object.assign(record, { status: "failed", error, updatedAt: at });
+      return unfinished.length;
     },
   };
 }
