@@ -55,7 +55,6 @@ export interface KitRepository {
   deleteOwned(id: string, userId: string): Promise<boolean>;
 
   // Used by the job runner, which works on a job it was handed rather than on a user's request.
-  findForJob(id: string): Promise<KitRecord | null>;
   /**
    * Takes a queued kit for running, in one atomic step, and returns it. Null when it is not
    * queued any more — deleted, or already claimed — so a kit can never be generated twice.
@@ -139,11 +138,6 @@ export function createKitRepository(db: Db): KitRepository {
       return _id ? (await kits.deleteOne({ _id, userId })).deletedCount === 1 : false;
     },
 
-    async findForJob(id) {
-      const _id = objectId(id);
-      const doc = _id && (await kits.findOne({ _id }));
-      return doc ? toRecord(doc) : null;
-    },
     async claim(id, at) {
       const _id = objectId(id);
       if (!_id) return null;

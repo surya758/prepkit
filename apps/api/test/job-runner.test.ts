@@ -40,7 +40,7 @@ describe("job runner — a kit that generates", () => {
     runner.enqueue(id);
     await runner.idle();
 
-    const record = (await kits.findForJob(id))!;
+    const record = kits.peek(id);
     expect(record.status).toBe("ready");
     expect(record.kit).toEqual(sampleKit());
     expect(record.error).toBeNull();
@@ -62,7 +62,7 @@ describe("job runner — a kit that generates", () => {
       onProgress(event("jd_profile", "completed"));
       await new Promise((resolve) => setTimeout(resolve, 5));
       // What a page polling mid-generation would see.
-      seenWhileRunning.push((await kits.findForJob(id))!.progress.map((e) => `${e.step}:${e.status}`));
+      seenWhileRunning.push(kits.peek(id).progress.map((e) => `${e.step}:${e.status}`));
       onProgress(event("validate_kit", "completed"));
       return sampleKit();
     });
@@ -72,13 +72,13 @@ describe("job runner — a kit that generates", () => {
     await runner.idle();
 
     expect(seenWhileRunning[0]).toEqual(["jd_profile:started", "crawl_company_site:completed", "jd_profile:completed"]);
-    expect((await kits.findForJob(id))!.progress.map((e) => e.step)).toEqual(["jd_profile", "crawl_company_site", "jd_profile", "validate_kit"]);
+    expect(kits.peek(id).progress.map((e) => e.step)).toEqual(["jd_profile", "crawl_company_site", "jd_profile", "validate_kit"]);
   });
 
   it("is running, not queued, while the pipeline works", async () => {
     let statusDuringRun = "";
     const { kits, runner, queue } = await setup(async () => {
-      statusDuringRun = (await kits.findForJob(id))!.status;
+      statusDuringRun = kits.peek(id).status;
       return sampleKit();
     });
     const id = await queue("a description");
@@ -98,7 +98,7 @@ describe("job runner — a kit that fails", () => {
     runner.enqueue(id);
     await runner.idle();
 
-    const record = (await kits.findForJob(id))!;
+    const record = kits.peek(id);
     expect(record.status).toBe("failed");
     expect(record.error).toEqual({ code: "LLM_UNAVAILABLE", message: "Every configured model failed" });
     expect(record.progress).toHaveLength(1); // what happened before the failure is kept
@@ -113,7 +113,7 @@ describe("job runner — a kit that fails", () => {
     runner.enqueue(id);
     await runner.idle();
 
-    const record = (await kits.findForJob(id))!;
+    const record = kits.peek(id);
     expect(record.error).toEqual({ code: "INTERNAL_ERROR", message: "Something went wrong while generating this kit. Please try again." });
     expect(JSON.stringify(record)).not.toContain("internalDetail");
     expect(logError).toHaveBeenCalledWith(expect.stringContaining(id), expect.any(TypeError));
@@ -130,8 +130,8 @@ describe("job runner — a kit that fails", () => {
     runner.enqueue(good);
     await runner.idle();
 
-    expect((await kits.findForJob(bad))!.status).toBe("failed");
-    expect((await kits.findForJob(good))!.status).toBe("ready");
+    expect(kits.peek(bad).status).toBe("failed");
+    expect(kits.peek(good).status).toBe("ready");
   });
 });
 
@@ -189,8 +189,8 @@ describe("job runner — after a restart", () => {
 
     expect(await runner.failInterrupted()).toBe(2);
 
-    expect((await kits.findForJob(stuckQueued))!).toMatchObject({ status: "failed", error: INTERRUPTED });
-    expect((await kits.findForJob(stuckRunning))!).toMatchObject({ status: "failed", error: INTERRUPTED });
-    expect((await kits.findForJob(finished))!.status).toBe("ready");
+    expect(kits.peek(stuckQueued)).toMatchObject({ status: "failed", error: INTERRUPTED });
+    expect(kits.peek(stuckRunning)).toMatchObject({ status: "failed", error: INTERRUPTED });
+    expect(kits.peek(finished).status).toBe("ready");
   });
 });

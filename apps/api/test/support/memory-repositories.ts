@@ -46,7 +46,7 @@ export function createMemorySessionRepository(): SessionRepository & { all(): Se
   };
 }
 
-export function createMemoryKitRepository(): KitRepository & { all(): KitRecord[] } {
+export function createMemoryKitRepository(): KitRepository & { all(): KitRecord[]; peek(id: string): KitRecord } {
   const kits = new Map<string, KitRecord>();
   const copy = (record: KitRecord): KitRecord => structuredClone(record);
   const update = (id: string, change: (record: KitRecord) => void) => {
@@ -56,6 +56,12 @@ export function createMemoryKitRepository(): KitRepository & { all(): KitRecord[
 
   return {
     all: () => [...kits.values()].map(copy),
+    /** Test-only: look at a stored record, whoever owns it. The real repository has no such method. */
+    peek(id) {
+      const record = kits.get(id);
+      if (!record) throw new Error(`no kit ${id} in the in-memory repository`);
+      return copy(record);
+    },
     async insert(record) {
       // The same contract as the unique index on (userId, fingerprint).
       if ([...kits.values()].some((k) => k.userId === record.userId && k.fingerprint === record.fingerprint)) return null;
@@ -81,10 +87,6 @@ export function createMemoryKitRepository(): KitRepository & { all(): KitRecord[
       const record = kits.get(id);
       if (!record || record.userId !== userId) return false;
       return kits.delete(id);
-    },
-    async findForJob(id) {
-      const record = kits.get(id);
-      return record ? copy(record) : null;
     },
     async claim(id, at) {
       const record = kits.get(id);
