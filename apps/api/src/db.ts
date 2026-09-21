@@ -1,6 +1,7 @@
 import { MongoClient } from "mongodb";
 import type { Db } from "mongodb";
 import { ensureAuthIndexes } from "./auth/repository";
+import { ensureKitIndexes } from "./kits/repository";
 
 export const DEFAULT_DATABASE = "prepkit";
 
@@ -28,5 +29,6 @@ export async function connectDatabase(uri: string): Promise<Database> {
   // accident. A name in the connection string wins; otherwise it is this one.
   const db = client.db(databaseNameIn(uri) ?? DEFAULT_DATABASE);
   await ensureAuthIndexes(db);
+  await ensureKitIndexes(db);
   return { db, close: () => client.close() };
 }
