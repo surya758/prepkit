@@ -8,5 +8,6 @@ export * from './retrieval/robots';
 export * from './retrieval/clean-html';
 export * from './retrieval/score-links';
 export * from './retrieval/crawl-site';
+export * from './llm/rate-limiter';
 export * from './pipeline/pipeline-error';
 export * from './pipeline/run-step';
