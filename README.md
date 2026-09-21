@@ -39,9 +39,9 @@ TypeScript throughout, in an npm-workspaces monorepo.
 
 | Part | Choice | Status |
 |---|---|---|
-| Pipeline library | `packages/core` — plain TypeScript, [zod](https://zod.dev) for the kit contract | in progress |
+| Pipeline library | `packages/core` — plain TypeScript, [zod](https://zod.dev) for the kit contract | in place |
 | Tests | vitest; fast-check for property-based tests | in place |
-| Backend | Node.js + Express, MongoDB | _Pending_ |
+| Backend | `apps/api` — Node.js, Express 5, MongoDB (official driver, zod for validation) | in place |
 | Frontend | Next.js + Tailwind CSS | _Pending_ |
 
 The pipeline is a library with no web framework or database in it. The brief requires the batch
@@ -107,8 +107,25 @@ Done in 81.9s: 5 ok, 0 failed.
 - The same description and company submitted twice is researched once; each case's schedule is
   still built from its own `days`.
 
-_Pending — the remaining environment variables, running the app locally and the deployed URLs are
-added when the apps land._
+### The API
+
+```bash
+npm run dev -w @prepkit/api     # http://localhost:4000, restarts on change
+curl localhost:4000/api/health  # {"status":"ok",...}
+```
+
+| Variable | Required | What it is for |
+|---|---|---|
+| `MONGODB_URI` | yes | MongoDB Atlas free tier (M0). Replace **both** placeholders in the string Atlas gives you, `<db_username>` and `<db_password>`. The database is `prepkit` unless the string names another |
+| `WEB_ORIGIN` | no | The address the web app is opened at; state-changing requests from any other website are refused. Defaults to `http://localhost:3000` |
+| `PORT` | no | Defaults to `4000` |
+| `NODE_ENV` | no | `production` turns on Secure cookies and **turns off** fetching of private and loopback addresses |
+
+The API starts without a model key: people can still sign in and read their kits, and generation
+fails per kit with a message naming the variable. A variable left empty, as in a copied
+`.env.example`, is treated as not set.
+
+_Pending — running the web app locally, and the deployed URLs._
 
 ## LLM provider and model
 
@@ -180,8 +197,43 @@ fifteen minutes. Token estimates assume four characters per token until the real
 
 ## Architecture
 
-_Pending — diagram and module map are added once the API and web app exist. The working design is
-in [`docs/DESIGN.md`](docs/DESIGN.md)._
+```
+packages/core   the pipeline, the kit contract and the builder's rules. No web framework, no database.
+apps/api        Express 5: authentication, kits, the job runner, the builder endpoints.
+fixtures/       sample cases for the batch command
+```
+
+**`packages/core`** is grouped by what the code is about: `retrieval/`, `llm/`, `pipeline/`,
+`coverage/`, `scheduling/`, `builder/`, `schema/`, `batch/` and `cli/`. Types and defaults live in
+the file that owns them; only what several modules share — the kit schema — is a module of its own.
+Test helpers are published separately as `@prepkit/core/testing`.
+
+**`apps/api`** is layered, and grouped by feature (`auth/`, `kits/`), not by kind:
+
+```
+routes        HTTP only: validate with zod, call a service, shape the response
+   ↓
+services      the rules: who may see what, what a duplicate is, how a change is saved
+   ↓
+repositories  MongoDB only: reads and writes, no decisions      +   @prepkit/core
+```
+
+- **Dependencies are passed in**, as plain factory functions (`createKitService({ kits, runner })`),
+  and assembled in exactly one place, `server.ts`. No classes, no container. It is why the API's
+  tests need no database: they pass in-memory implementations of the same repository interfaces.
+- **Routes throw; one middleware answers.** Express 5 forwards a rejected async handler on its
+  own, so there are no wrappers and no `try/catch` in routes. Every error leaves in one envelope,
+  `{ "error": { "code", "message", "details?" } }`. Validation failures list every field; pipeline
+  errors keep their code (`LLM_RATE_LIMITED` → 503); a bug becomes `INTERNAL_ERROR` with a fixed
+  sentence while the real error goes to the log.
+- **Ownership cannot be forgotten.** The kit repository has no "find by id": every user-facing
+  method takes the owner's id (`findOwned(id, userId)`). Someone else's kit answers 404, exactly
+  like one that does not exist — a 403 would confirm the id is real.
+- **Configuration is read in one file**, validated at startup, and fails by variable name.
+  Whether private addresses may be fetched is _derived_ from `NODE_ENV`, not a flag anyone can set.
+
+_Pending — the web app, and a diagram of the whole, are added once the web app exists. The working
+design is in [`docs/DESIGN.md`](docs/DESIGN.md)._
 
 ## Retrieval approach and sources
 
@@ -520,7 +572,68 @@ The constants (minutes table, tier weights, daily cap) are named at the top of t
 
 ## Generated, edited and pinned state
 
-_Pending — written with the builder API._
+The rules are pure functions in
+[`packages/core/src/builder/kit-editor.ts`](packages/core/src/builder/kit-editor.ts):
+`(state, change) → new state`, with no database, HTTP or model in them, so they can be read and
+tested on their own. The API applies them
+([`builder-service.ts`](apps/api/src/kits/builder-service.ts)).
+
+**The model.** Beside the kit — never inside it, so the kit keeps Appendix A's exact shape — each
+question, flashcard and brief field carries three facts:
+
+| | |
+|---|---|
+| `origin` | `"generated"` by the pipeline, or `"user"`: added by hand |
+| `edited` | the user changed its content |
+| `pinned` | the user said "keep this one" without changing it |
+
+**The rule.** An item is **locked** if its origin is `user`, or it is `edited`, or it is `pinned`.
+Regenerating a section replaces the _unlocked_ items of that section and touches nothing else.
+
+```
+1. as generated                    2. the user edits q2, pins q3, writes q5     3. "Regenerate technical"
+q1 technical   generated           q1 technical   generated                     q2 technical   edited      kept
+q2 technical   generated           q2 technical   edited     LOCKED             q3 technical   pinned      kept
+q3 technical   generated           q3 technical   pinned     LOCKED             q4 behavioural edited      other category: untouched
+q4 behavioural generated           q4 behavioural edited     LOCKED             q5 technical   yours       kept
+                                   q5 technical   yours      LOCKED             q6 technical   generated   new
+                                                                                q7 technical   generated   new
+```
+
+Only `q1`, the one untouched technical question, was replaced. A fresh question that repeated the
+pinned `q3` was dropped. The same rule applies to the brief, field by field: a rewritten summary
+stays, an untouched description is refreshed.
+
+- **Ids are never reused.** They come from counters stored with the kit, so a deleted `q6` does not
+  free its id, and the schedule or a practice record can never end up pointing at a different
+  question.
+- **Moving a question to another category is an edit**; reordering is not — order is presentation.
+- **A regenerated category stays the size it was planned.** The model is told how many questions are
+  being kept and asked only for the difference, and is given every existing question so that the
+  fresh ones are new. It is asked by the same category prompt that wrote the originals.
+- **The schedule follows the questions.** Until the user arranges it by hand it is rebuilt by the
+  allocator after every change. Once arranged it is only patched: removed ids go, new questions
+  join the lightest day, the user's days stay. "Regenerate schedule" is the one explicit discard,
+  and can re-plan the same questions over a different number of days with no model call.
+- **Every operation ends by recomputing coverage and re-validating the kit** against the schema. A
+  change that would make the kit invalid is refused; a category emptied by hand shows its must-have
+  as uncovered rather than hiding it.
+
+**An edit in flight.** A regeneration takes seconds and the user keeps working. Two things make
+that safe:
+
+1. Each kit has a revision number. A change is _load → apply the rule → save only if the revision
+   is unchanged → otherwise load again and re-apply_. Two edits landing together are therefore both
+   kept; neither overwrites the other. (Tested: two simultaneous PATCHes, both applied, revision 3.)
+2. A regeneration asks the model first, and merges afterwards against **the kit as it is by then**,
+   not the snapshot it started from. An edit made while the model was thinking has, by merge time,
+   simply locked that question. (Tested: the model is held mid-call, the user edits a question in
+   the same category, the model returns, the edit survives.)
+
+The interface sends one small request per change and never the whole kit, so a slow save cannot
+overwrite something edited after it was sent. A failed regeneration changes nothing; if the company
+site cannot be read when the brief is regenerated, the existing brief stays rather than being
+replaced by an empty one.
 
 ## Practice mode
 
@@ -528,7 +641,41 @@ _Pending._
 
 ## Long-running generation
 
-_Pending — written with the job runner._
+Generation takes fifteen to twenty seconds and calls services that fail, so it never runs inside a
+request ([`job-runner.ts`](apps/api/src/kits/job-runner.ts)).
+
+```
+POST /api/kits  →  insert { status: "queued" }  →  202 in ~100 ms
+                                  ↓ background
+                   claim it (atomic)  →  "running"  →  every pipeline step appended to the record
+                                  ↓
+                   "ready" with the kit      or      "failed" with { code, message }
+```
+
+The page polls `GET /api/kits/:id`. Because every step is written to the database as it happens, a
+reload — or a second tab — shows the same progress. The brief's three questions:
+
+- **It takes ninety seconds.** The request has long since returned; the record carries the progress.
+- **It fails halfway.** The kit is `failed` with the pipeline's own code and message, what ran before
+  the failure is kept, and it can be retried under the same id. A bug is recorded as
+  `INTERNAL_ERROR` with a plain sentence, the real error going to the log.
+- **It is triggered twice.** See "the same description and company submitted twice" under
+  [Edge cases](#edge-cases-and-failure-handling).
+
+The queue is **in-process, on purpose**: one free instance is all there is, and a separate worker
+plus a broker would be two more free-tier services to keep alive. What that costs is handled
+explicitly:
+
+- A kit is claimed with one atomic update (`queued` → `running`), so two free slots can never
+  generate the same kit.
+- Two kits generate at a time; the shared rate limiter paces the model calls underneath.
+- A queue in memory does not survive a restart, and free hosts restart. At startup, anything still
+  `queued` or `running` is marked `failed` / `INTERRUPTED` — "The server restarted while this kit was
+  being generated. Try again to pick it up." — instead of showing "generating…" forever.
+- On shutdown the server stops taking requests and gives running kits a few seconds to finish.
+
+**Known limitation:** with more than one instance the queue, and the login rate limit, would each
+need a shared store.
 
 ## Edge cases and failure handling
 
@@ -556,7 +703,7 @@ The cases the brief names, and what happens in each:
 | The description is a two-line stub | Zero requirements, nothing invented, warning `JD_THIN`, still exactly N scheduled days. Short is not the same as thin: a terse posting with three clear requirements is not flagged |
 | The model returns invalid JSON or an incomplete kit | Fenced, wrapped and trailing-comma replies are repaired locally. Otherwise one re-ask naming the exact fields that were wrong, with more room if the reply was cut off; then the next model in the chain. The finished kit is validated against the schema before it is returned |
 | The provider rate-limits or briefly fails | See [LLM provider and model](#llm-provider-and-model): shared limiter, `Retry-After`, backoff, cooldown and fallback. If every model fails on an optional step the kit degrades with a warning; on the description it fails with the provider's error code |
-| The same description and company submitted twice | In a batch, researched once, with each case's own schedule. _Pending — the web app's handling of a duplicate submission is written with the API._ |
+| The same description and company submitted twice | **In the app:** a posting is fingerprinted from its normalised description and company address — not the number of days, since the same posting with a new interview date is the same research. A repeat answers `409 KIT_ALREADY_EXISTS` with the existing kit's id, so the interface offers to open it; a unique index on (user, fingerprint) makes a double-click safe, since of two simultaneous inserts exactly one succeeds. "Generate a fresh kit anyway" is a wanted repeat, so it bypasses the content check — and would lose double-click protection with it, which is why that request carries an `Idempotency-Key` that takes the random part's place in the fingerprint. Content identity recognises repeats; request identity covers the one path where a repeat is wanted. **In a batch:** researched once, with each case's own schedule |
 | A 1-day or a 60-day schedule | Exactly that many days; see [How the schedule is allocated](#how-the-schedule-is-allocated) |
 | The description contains text addressed to an AI | Flagged with `JD_SUSPICIOUS_TEXT` and treated as content; see [Security](#security) |
 | The kit runs out of time | Optional model steps are skipped with `DEADLINE_REACHED`; coverage, schedule and validation always run |
@@ -572,6 +719,34 @@ could not be made — the company's name is unknown, or the search API is down �
 `false` and the log says which.
 
 ## Security
+
+### Accounts and sessions
+
+- **Passwords** are hashed with scrypt from Node's own `crypto` — memory-hard, and with no native
+  add-on to compile on a free host. The parameters are stored in the hash
+  (`scrypt$32768$8$1$<salt>$<hash>`), so they can be raised later without breaking existing
+  accounts. Comparison is constant-time.
+- **Sessions are server-side.** The cookie holds a random 32-byte token; the database holds only
+  its SHA-256, so a leaked database cannot be replayed as cookies. Logging out deletes the row and
+  the cookie stops working at once, which a stateless token could not do. Sessions last seven days;
+  a TTL index clears expired ones, and the expiry is checked again on every read.
+- **The cookie** is `HttpOnly` (scripts cannot read it), `SameSite=Lax`, and `Secure` in production.
+  The token never appears in a response body.
+- **CSRF is blocked twice.** On top of `SameSite=Lax`, any state-changing request whose `Origin` is
+  not the web app's is refused with 403 before it can act. Requests with no `Origin` are not from a
+  browser page and carry no ambient cookie.
+- **A signed-out visitor reaches nothing.** Every kit and builder route sits behind one middleware.
+  A missing cookie, an unknown token, a malformed value and an expired session all get the same
+  `401 UNAUTHENTICATED`, which the interface answers by sending the user to sign in.
+- **Users reach only their own kits** — see [Architecture](#architecture): there is no repository
+  method that finds a kit without its owner, and another user's kit is a 404.
+- **Guessing is slow and quiet.** A wrong password and an unknown email get the same answer, in
+  the same time (an unknown email is still checked against a dummy hash). Login and registration
+  allow ten attempts per email and address per fifteen minutes, then `429` with `Retry-After`.
+- **One account cannot spend the shared model quota**: kit creation is limited per user per hour.
+- Email verification, password reset and roles are out of scope, as the brief says.
+
+### Untrusted pages
 
 Every outbound request goes through one function,
 [`fetchPage`](packages/core/src/retrieval/fetch-page.ts), so the limits exist in exactly one place.
@@ -658,6 +833,29 @@ _Pending._
   `PipelineError` with a stable code and is recorded in the kit. A `TypeError` in an optional step
   still degrades — so one bug cannot cost a whole graded case — but is labelled `INTERNAL_ERROR`,
   logged, and rethrown in the pipeline's own tests.
+- **Server-side sessions rather than JWTs.** The brief asks for logout and for sensible handling
+  of expired or invalid sessions. With a session row, logout is a deletion; with a stateless token
+  it needs a server-side denylist anyway. The cost is one indexed read per request.
+- **The MongoDB driver with zod, not an ODM.** The kit's shape is already a zod schema, validated
+  on every write and shared with the batch output. A second schema system would describe the same
+  thing twice and drift.
+- **In-memory repositories for the API's tests.** The brief scores "tests pass", and they must pass
+  from a clean clone. An in-memory MongoDB downloads a binary of about 100 MB on first run, which
+  fails or times out on a slow or offline machine. Repositories are small interfaces instead; tests
+  pass in plain in-memory implementations honouring the same contract. The cost is that MongoDB
+  query syntax is not unit-tested — so the MongoDB repositories are kept deliberately thin, with
+  the decisions in services, and were verified against a real Atlas cluster.
+- **Fingerprint for repeats, idempotency key for the one wanted repeat.** See "submitted twice"
+  under [Edge cases](#edge-cases-and-failure-handling). A general idempotency-key store was not
+  built: nearly every repeat here is recognisable from its content.
+- **Whole-kit saves guarded by a revision, not field-level database updates.** The builder's rules
+  are pure functions over a whole kit, which is what makes them testable and keeps the kit valid
+  after every change. A revision check with retry makes whole-kit saves safe under concurrency. The
+  cost is a rewrite of the document per change, which at these sizes is nothing.
+- **Regenerating a section is a request, not a job.** It is one model call of two or three
+  seconds, so it answers directly and the interface shows progress on that section alone. Full
+  generation, at fifteen seconds and many calls, is the job.
+- **An in-process job queue.** See [Long-running generation](#long-running-generation).
 - **Test helpers have their own entry point.** The fake model is published as
   `@prepkit/core/testing`, not from the main entry, so production code cannot import it.
 
@@ -678,6 +876,20 @@ local HTTP servers on random ports — including a fixture that hosts three comp
 origin, the way the brief serves its evaluation sites: one with its hiring page at an unpredictable
 path, one with no hiring page at all, and one whose careers link is a 404. DNS is injected for the
 URL guard, so private-address and mixed-record cases need no network either.
+
+The API (`apps/api`) is tested over HTTP with supertest against the real Express app, built on
+in-memory repositories and a stand-in for the pipeline, so it too needs no database, key or
+network. That covers the error envelope, authentication (cookie attributes, expiry, logout on one
+device only, the origin check, the attempt limit), kits (202 without waiting, duplicates and
+double-clicks, the idempotency key, per-row upload results, progress while running, retry,
+ownership on every route) and the builder (every edit, every refusal leaving the revision
+untouched, two simultaneous edits, and an edit made while a regeneration is in flight). The
+builder's rules were also mutation-checked: making edited items unlocked, or letting regeneration
+remove locked questions, fails seven and five tests respectively.
+
+The MongoDB repositories, which the in-memory tests cannot exercise, were run against a real Atlas
+cluster: registration, the duplicate-key path, login, logout, a full kit generated through the API
+with its progress read back, and edits and regenerations through the builder.
 
 The pipeline is tested with a scripted model that answers according to which step is asking, since
 steps run in parallel and a plain list of replies could be consumed in the wrong order. That makes
