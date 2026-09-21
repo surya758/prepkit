@@ -66,6 +66,12 @@ export const MODEL_CHAIN: ModelDefinition[] = [
 const ATTEMPTS_WITH_BACKUP = 2;
 const ATTEMPTS_LAST_IN_CHAIN = 4;
 
+// The same reasoning applied to slowness. A healthy reply takes 2 to 8 seconds, and a long one
+// close to 20. Waiting the full default for a model that is merely slow, and then waiting again,
+// once used 120 of a kit's 150 seconds and left no time for flashcards. A model with a backup
+// gets this long, once; the chain then rests it and the rest of the kit goes to the next model.
+export const TIMEOUT_WITH_BACKUP_MS = 25_000;
+
 export interface ChainFromEnv {
   chain: ProviderChain;
   /** Models that will be used, in order. */
@@ -105,6 +111,7 @@ export function createChainFromEnv(
       apiKey: env[provider.apiKeyEnv]!.trim(),
       model: definition.model,
       maxAttempts: index === usable.length - 1 ? ATTEMPTS_LAST_IN_CHAIN : ATTEMPTS_WITH_BACKUP,
+      ...(index === usable.length - 1 ? {} : { timeoutMs: TIMEOUT_WITH_BACKUP_MS, retryOnTimeout: false }),
       // One limiter per model, created once here and shared by every kit being generated.
       limiter: createRateLimiter({
         requestsPerMinute: definition.requestsPerMinute,

@@ -21,6 +21,12 @@ export interface OpenAiClientOptions {
   limiter: RateLimiter;
   timeoutMs?: number;
   maxAttempts?: number;
+  /**
+   * False for a model that has another behind it. A model that has not answered in time is
+   * slow right now, and asking it again waits just as long; handing over is quicker. The last
+   * model in a chain keeps the default, since it has nobody to hand over to.
+   */
+  retryOnTimeout?: boolean;
   /** Injected in tests. */
   fetchImpl?: typeof fetch;
   sleep?: (ms: number) => Promise<void>;
@@ -54,6 +60,7 @@ export function createOpenAiClient(options: OpenAiClientOptions): LlmProvider {
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const timeoutMs = options.timeoutMs ?? DEFAULT_LLM_TIMEOUT_MS;
   const maxAttempts = options.maxAttempts ?? DEFAULT_LLM_MAX_ATTEMPTS;
+  const retryOnTimeout = options.retryOnTimeout ?? true;
   const endpoint = `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
 
   async function complete(request: LlmRequest): Promise<LlmResponse> {
@@ -86,7 +93,11 @@ export function createOpenAiClient(options: OpenAiClientOptions): LlmProvider {
       } catch (error) {
         // Timeout or network failure: nothing was counted against us, so release the estimate.
         reservation.settle(0);
-        lastProblem = error instanceof Error ? error.message : String(error);
+        const timedOut = error instanceof Error && error.name === "TimeoutError";
+        if (timedOut && !retryOnTimeout) {
+          throw new PipelineError("LLM_UNAVAILABLE", `${model} did not answer within ${Math.round(timeoutMs / 1000)}s`);
+        }
+        lastProblem = timedOut ? `no answer within ${Math.round(timeoutMs / 1000)}s` : error instanceof Error ? error.message : String(error);
         if (attempt < maxAttempts) await sleep(Math.min(BACKOFF_BASE_MS * 2 ** (attempt - 1), MAX_BACKOFF_MS));
         continue;
       }
