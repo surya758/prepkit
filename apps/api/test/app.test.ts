@@ -36,7 +36,8 @@ function failingRoutes(): Router {
   return router;
 }
 
-const config = loadConfig({ NODE_ENV: "test" });
+const MONGODB_URI = "mongodb://unused-in-tests/prepkit";
+const config = loadConfig({ NODE_ENV: "test", MONGODB_URI });
 const appWith = (logError = vi.fn()) => ({ app: createApp({ config, routers: [failingRoutes()], logError }), logError });
 
 describe("GET /api/health", () => {
@@ -156,16 +157,39 @@ describe("error responses — bugs", () => {
 
 describe("loadConfig", () => {
   it("defaults to development on port 4000, where private hosts may be fetched", () => {
-    expect(loadConfig({})).toEqual({ env: "development", port: 4000, isProduction: false, allowPrivateHosts: true });
+    expect(loadConfig({ MONGODB_URI })).toEqual({
+      env: "development",
+      port: 4000,
+      mongodbUri: MONGODB_URI,
+      webOrigin: "http://localhost:3000",
+      isProduction: false,
+      allowPrivateHosts: true,
+    });
   });
 
   it("never allows private hosts in production, with no flag that could change it", () => {
-    const config = loadConfig({ NODE_ENV: "production", PORT: "8080", ALLOW_PRIVATE_HOSTS: "true" });
-    expect(config).toEqual({ env: "production", port: 8080, isProduction: true, allowPrivateHosts: false });
+    const config = loadConfig({ NODE_ENV: "production", PORT: "8080", MONGODB_URI, ALLOW_PRIVATE_HOSTS: "true" });
+    expect(config).toMatchObject({ env: "production", port: 8080, isProduction: true, allowPrivateHosts: false });
   });
 
   it("fails at startup, naming the variable, when the environment is invalid", () => {
-    expect(() => loadConfig({ PORT: "not-a-port" })).toThrow(/Invalid environment: PORT/);
-    expect(() => loadConfig({ NODE_ENV: "staging" })).toThrow(/Invalid environment: NODE_ENV/);
+    expect(() => loadConfig({ MONGODB_URI, PORT: "not-a-port" })).toThrow(/Invalid environment: PORT/);
+    expect(() => loadConfig({ MONGODB_URI, NODE_ENV: "staging" })).toThrow(/Invalid environment: NODE_ENV/);
+  });
+
+  it("treats a variable left empty, as in a copied .env.example, as not set", () => {
+    const config = loadConfig({ MONGODB_URI, WEB_ORIGIN: "", PORT: "  ", NODE_ENV: "" });
+    expect(config).toMatchObject({ env: "development", port: 4000, webOrigin: "http://localhost:3000" });
+    expect(() => loadConfig({ MONGODB_URI: "" })).toThrow(/MONGODB_URI: is required/);
+  });
+
+  it("requires a MongoDB connection string, and says where to look", () => {
+    expect(() => loadConfig({})).toThrow("Invalid environment: MONGODB_URI: is required (see .env.example)");
+    expect(() => loadConfig({ MONGODB_URI: "postgres://nope" })).toThrow(/MONGODB_URI: must start with mongodb/);
+  });
+
+  it("reduces WEB_ORIGIN to an origin, so a trailing slash or path cannot break the comparison", () => {
+    expect(loadConfig({ MONGODB_URI, WEB_ORIGIN: "https://prepkit.example.com/" }).webOrigin).toBe("https://prepkit.example.com");
+    expect(() => loadConfig({ MONGODB_URI, WEB_ORIGIN: "not a url" })).toThrow(/Invalid environment: WEB_ORIGIN/);
   });
 });
