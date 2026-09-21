@@ -72,7 +72,85 @@ in [`docs/DESIGN.md`](docs/DESIGN.md)._
 
 ## Retrieval approach and sources
 
-_Pending — written with the fetcher and crawler._
+The job description is pasted, so it needs no retrieval. The company site does, and it is handled
+by six small modules in [`packages/core/src/retrieval`](packages/core/src/retrieval), each
+testable on its own:
+
+| Module | Responsibility |
+|---|---|
+| `url-guard.ts` | Is this URL safe to request at all? (see [Security](#security)) |
+| `fetch-page.ts` | One request: deadline, size cap, content types, redirects, retries with backoff |
+| `robots.ts` | robots.txt per RFC 9309: group selection, longest match wins, cached per site |
+| `clean-html.ts` | HTML → readable text for the model, plus absolute links with their anchor text |
+| `score-links.ts` | Which links are worth fetching, and is a fetched page really a hiring page? |
+| `crawl-site.ts` | Ties them together: a best-first crawl within a budget |
+
+**Finding the hiring page without a list of paths.** The brief is explicit that a fixed list of
+paths is not enough, so links are scored on what they _say_. Anchor text carries the most weight
+("How we hire" 10, "Careers" 7, "Join the…" 6), words in the URL path less ("hiring" 6, "careers"
+5), and noise (privacy, login, newsletter, PDFs and images) is penalised out. The crawler fetches
+the company URL, scores its links, fetches the best one, scores _that_ page's links, and repeats —
+at most 8 pages, 3 clicks deep. In the test fixture the process page is at
+`/acme/handbook/join-the-crew`, reached from the home page through "Handbook" and then a link
+called "Join the crew":
+
+```
+crawl        ok       /acme/
+crawl        skipped  /acme/drafts/hiring-2027       Disallowed by /acme/robots.txt
+crawl        ok       /acme/about
+crawl        ok       /acme/handbook/
+crawl        ok       /acme/handbook/join-the-crew   Hiring page
+crawl        ok       /acme/handbook/values
+crawl        ok       /acme/product
+hiring_page  ok       /acme/handbook/join-the-crew   Describes the interview process
+```
+
+**A link's name is a promise; the page is the proof.** After fetching, the page's text is checked
+for hiring vocabulary and for named interview stages (take-home, phone screen, system design,
+on-site, …). Two or more distinct stages means the page _describes the process_, which is what
+later changes the question mix. A careers page that only lists openings is recorded as a hiring
+page that does not describe the process. A site with neither produces
+`No hiring page found on the company site` in the log, and the kit says so rather than inventing one.
+
+This scoring is keyword-based rather than a model call on purpose: it is free, instant,
+deterministic and explainable (every score records the signals that fired). Its weakness is that it
+only knows English hiring vocabulary.
+
+**Staying on the company's own site.** The crawl is limited to the company URL's origin, and when
+that URL has a path (`http://localhost:8099/acme/`) the path is a hard boundary, because one origin
+may host several companies. If nothing about hiring is found inside the boundary, links the
+company's own pages made to elsewhere on the origin get a single hop: fetched, never expanded, and
+kept only if the page's title or site name contains this company's name. Without that check the
+crawler adopted a neighbouring company's careers page as its own in testing; there is now a test
+for exactly that.
+
+**robots.txt and politeness.** Every candidate URL is checked against robots.txt before it is
+requested, and a disallowed page is skipped and logged. A missing robots.txt allows everything; an
+unreachable one (5xx, timeout) disallows everything, as the RFC requires. For a site mounted under a
+path, `<path>/robots.txt` is honoured as well as the origin's — the standard only defines the
+origin root, but a server hosting several sites under one origin has nowhere else to put per-site
+rules. Requests to a site are spaced one second apart (loopback hosts exempt), and the fetcher
+identifies itself with its own user-agent.
+
+**Hidden text is removed before anything reads the page.** Comments, scripts, and elements hidden
+with `hidden`, `aria-hidden`, or inline styles (`display:none`, zero size or opacity, off-screen
+positioning) are dropped, since text a visitor cannot see is where instructions aimed at a model
+are planted. Navigation and footer _text_ is dropped as boilerplate, but their _links_ are kept,
+because that is where "Careers" usually lives. Text hidden by an external stylesheet cannot be
+detected without rendering the page; cleaning is one layer of defence, not the whole of it.
+
+**Nothing in retrieval throws.** Every fetch, skip and failure comes back as a `research_log` entry
+(`step`, `url`, `outcome`, `reason`), so an unreachable page costs one log line, not the run. The
+company's name comes from `og:site_name` or from the part of the title that repeats across pages —
+never from the hostname, which may be `localhost`.
+
+**Known limits.** Same origin only, so an external applicant-tracking site (`jobs.lever.co/acme`)
+or a `careers.` subdomain is not followed. `sitemap.xml` is not used. Pages are read as UTF-8 and
+capped at 6,000 characters of text each.
+
+**Sources used:** the company's own website, within the limits above.
+
+_Pending — public discussion of the company's interview process is written with that step._
 
 ## Research and generation steps
 
@@ -245,6 +323,12 @@ npm test
 Tests need no API key and no database. Covered so far: kit and batch structure validation
 (including cross-references and Appendix A key conformance), coverage checking and the pass-limit
 rule, and schedule allocation for 1-day, N-day, 60-day and zero-question cases.
+
+Retrieval is tested without touching the internet. The fetcher and the crawler run against real
+local HTTP servers on random ports — including a fixture that hosts three companies under one
+origin, the way the brief serves its evaluation sites: one with its hiring page at an unpredictable
+path, one with no hiring page at all, and one whose careers link is a 404. DNS is injected for the
+URL guard, so private-address and mixed-record cases need no network either.
 
 The scheduler is also property-tested: fast-check generates random requirements, questions and day
 counts (1–90) and asserts that the schedule always spans exactly the requested days, uses positive
