@@ -42,7 +42,7 @@ TypeScript throughout, in an npm-workspaces monorepo.
 | Pipeline library | `packages/core` — plain TypeScript, [zod](https://zod.dev) for the kit contract | in place |
 | Tests | vitest; fast-check for property-based tests | in place |
 | Backend | `apps/api` — Node.js, Express 5, MongoDB (official driver, zod for validation) | in place |
-| Frontend | Next.js + Tailwind CSS | _Pending_ |
+| Frontend | `apps/web` — Next.js 16 (App Router), Tailwind CSS v4, [shadcn/ui](https://ui.shadcn.com) on Radix, TanStack Query | accounts and the app shell in place; kits, builder and practice screens _Pending_ |
 
 The pipeline is a library with no web framework or database in it. The brief requires the batch
 command to run "the same code your application uses, not a parallel implementation" and to need no
@@ -125,7 +125,20 @@ The API starts without a model key: people can still sign in and read their kits
 fails per kit with a message naming the variable. A variable left empty, as in a copied
 `.env.example`, is treated as not set.
 
-_Pending — running the web app locally, and the deployed URLs._
+### The web app
+
+```bash
+npm run dev -w @prepkit/api     # the API, on :4000
+npm run dev -w @prepkit/web     # the web app, on http://localhost:3000
+```
+
+| Variable | Required | What it is for |
+|---|---|---|
+| `API_URL` | no | Where the web app forwards `/api/*`. Defaults to `http://localhost:4000`. In production it is set on the web host; locally, Next.js reads it from `apps/web/.env.local`, not from the root `.env` |
+
+The web app needs no other configuration and holds no secrets.
+
+_Pending — the deployed URLs._
 
 ## LLM provider and model
 
@@ -243,7 +256,47 @@ repositories  MongoDB only: reads and writes, no decisions      +   @prepkit/cor
 - **Configuration is read in one file**, validated at startup, and fails by variable name.
   Whether private addresses may be fetched is _derived_ from `NODE_ENV`, not a flag anyone can set.
 
-_Pending — the web app, and a diagram of the whole, are added once the web app exists. The working
+**`apps/web`** is a Next.js app that renders in the browser and holds no data of its own.
+
+- **The browser only ever talks to the web app's own address.** `next.config.ts` forwards `/api/*`
+  to the API server-side. The session cookie is therefore first-party — `SameSite=Lax` is enough,
+  and there is no CORS configuration to get wrong — where calling the API's own domain would make
+  it a third-party cookie, which browsers increasingly refuse. The browser's `Origin` header is
+  forwarded untouched, so the API's cross-site check keeps working: a request through the proxy
+  with `Origin: https://evil.example` is answered `403 ORIGIN_NOT_ALLOWED`.
+- **One API client** ([`lib/api.ts`](apps/web/src/lib/api.ts)). Every failure leaves it as an
+  `ApiError` with a code to branch on and a message fit to show. The API's envelope passes through,
+  with validation problems offered per field; an HTML page from a sleeping host or a proxy becomes
+  "the server is not responding yet" rather than "Unexpected token <"; no connection and a
+  cancelled request are told apart.
+- **Server state lives in TanStack Query**, with two rules of its own. A request the server
+  understood and refused (4xx) is not asked again, since waiting does not change the answer; a
+  sleeping server or a dropped connection gets three tries. And a `401 UNAUTHENTICATED` from *any*
+  request marks the user as signed out in the cache — a wrong password is also a 401 and
+  deliberately does not.
+- **Being signed out is handled in one place.** Signing out, a session that expires mid-visit and
+  a signed-out visit to a deep link all become "the cached user is `null`", and the signed-in
+  layout sends all three to `/login?next=…`. After signing in, `?next=` is only honoured for paths
+  inside the app, which closes the open redirect such a parameter otherwise creates. A server that
+  cannot be reached is *not* treated as signed out: it gets its own message and a retry, because a
+  login page that would also fail looks like a broken app. The guard decides what to show; the API
+  is what protects the data.
+- **Forms show the API's own validation messages**, under the field they belong to, so the form
+  can never disagree with the server about what is valid. Focus moves to the first problem.
+- **Waking the server.** Free hosting sleeps an idle API and the first request can take most of a
+  minute. Every page asks for `/api/health` as it opens — which is also what starts the wake-up —
+  stays quiet for 1.5 seconds so a healthy server never flashes a banner, then says what is
+  happening and clears itself when the server answers.
+- **shadcn/ui** copies component source into the repo rather than shipping a package, so every
+  line is readable and changeable here; the components wrap Radix primitives, which is where
+  keyboard and screen-reader behaviour comes from. Components only name colour *roles*
+  (`bg-primary`, `text-muted-foreground`); the two themes — "Night desk" and its light counterpart,
+  switchable and remembered — are one block of CSS variables each in
+  [`globals.css`](apps/web/src/app/globals.css). Every text pair was measured at 4.5:1 or better in
+  both themes, and form-field outlines were raised to 3:1, which shadcn's defaults do not reach.
+  Fonts are self-hosted by `next/font`: a visitor's browser never contacts Google.
+
+_Pending — a diagram of the whole, once the remaining screens exist. The working
 design is in [`docs/DESIGN.md`](docs/DESIGN.md)._
 
 ## Retrieval approach and sources
@@ -962,6 +1015,13 @@ of "any address, any free port". On macOS that default can be handed a port anot
 an editor extension, here — already holds on 127.0.0.1, and that program then answers the test.
 It surfaced as one failed run in about twenty (a 426 from a WebSocket server, a 401 in a foreign
 format); `apps/api/test/support/http.ts` explains the fix.
+
+The web app (`apps/web`) tests its logic without a browser: where a redirect after login may go
+(an absolute URL, a protocol-relative one, the backslash form and a script URL are each refused),
+which failures are retried and how an ended session is noticed, and what the API client makes of
+every kind of reply. Each of the three files was mutation-checked, which found one real gap: the
+envelope check was only tested against JSON with *no* `error` key, so loosening it survived until a
+case for `{ "error": "Internal Server Error" }` — what many servers send — was added.
 
 The MongoDB repositories, which the in-memory tests cannot exercise, were run against a real Atlas
 cluster: registration, the duplicate-key path, login, logout, a full kit generated through the API
