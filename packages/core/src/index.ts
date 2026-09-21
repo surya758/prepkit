@@ -8,6 +8,7 @@ export * from './retrieval/robots';
 export * from './retrieval/clean-html';
 export * from './retrieval/score-links';
 export * from './retrieval/crawl-site';
+export * from './retrieval/public-discussion';
 export * from './llm/rate-limiter';
 export * from './llm/provider';
 export * from './llm/json';

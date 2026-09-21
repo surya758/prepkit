@@ -21,6 +21,8 @@ export interface QuestionBankInput {
   companyWhatTheyDo: string;
   companyResearched: boolean;
   hiringProcess: HiringProcess;
+  /** Excerpts of what candidates have said in public about interviewing at the company. */
+  publicDiscussion?: string[];
 }
 
 export interface QuestionBank {
@@ -68,6 +70,7 @@ export async function buildQuestionBank(llm: LlmProvider, input: QuestionBankInp
     responsibilities: input.responsibilities,
     companyWhatTheyDo: input.companyWhatTheyDo,
     hiringProcess: input.hiringProcess,
+    publicDiscussion: input.publicDiscussion,
     existingPrompts: questions.map((q) => q.prompt),
   });
 

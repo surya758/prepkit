@@ -70,6 +70,14 @@ export const hiringProcessSchema = z.object({
   source: httpUrl.nullable(),
 });
 
+export const publicDiscussionSchema = z.object({
+  /** False when no search could be made: the company name was unknown, or the search failed. */
+  searched: z.boolean(),
+  source: z.string(),
+  query: z.string(),
+  hits: z.array(z.object({ title: z.string().min(1), url: httpUrl, excerpt: z.string().min(1) })),
+});
+
 const kitShape = z.object({
   source: z.object({
     // Empty string means "not stated" — never guessed.
@@ -106,6 +114,7 @@ const kitShape = z.object({
   warnings: z.array(warningSchema).optional(),
   research_log: z.array(researchLogEntrySchema).optional(),
   hiring_process: hiringProcessSchema.optional(),
+  public_discussion: publicDiscussionSchema.optional(),
   requirement_evidence: z.record(requirementId, z.string()).optional(),
 });
 
@@ -166,6 +175,7 @@ export type ScheduleDay = z.infer<typeof scheduleDaySchema>;
 export type Warning = z.infer<typeof warningSchema>;
 export type ResearchLogEntry = z.infer<typeof researchLogEntrySchema>;
 export type HiringProcess = z.infer<typeof hiringProcessSchema>;
+export type PublicDiscussion = z.infer<typeof publicDiscussionSchema>;
 export type Kit = z.infer<typeof kitSchema>;
 
 export type KitValidation =

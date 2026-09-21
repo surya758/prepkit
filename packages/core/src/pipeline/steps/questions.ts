@@ -168,7 +168,7 @@ Each question asks the candidate to describe real past experience ("Tell me abou
 Each question is an open-ended design problem ("Design…", "How would you architect…") grounded in what this company builds and the stack the role uses. The answer outline names the components, the key trade-offs and how the design scales or fails. List requirement ids only where the problem genuinely exercises that requirement; an empty list is acceptable.`,
 
   "company-fit": `You write COMPANY-FIT interview questions for a specific role.
-Each question is about this company in particular: why it, its product and customers, how the candidate's experience connects to what it does, and its interview process. Use only what <company> and <interview_process> say. The answer outline tells the candidate what to research or connect from their own background. "requirement_ids" is an empty list for these questions.`,
+Each question is about this company in particular: why it, its product and customers, how the candidate's experience connects to what it does, and its interview process. Use only what <company> and <interview_process> say. If <public_discussion> is given, it holds unverified comments from strangers about interviewing there: you may use it to choose what to prepare for, but never state anything from it as fact about the company. The answer outline tells the candidate what to research or connect from their own background. "requirement_ids" is an empty list for these questions.`,
 };
 
 const difficulty = z.preprocess((value) => {
@@ -202,6 +202,8 @@ export interface QuestionContext {
   /** `what_they_do` from the brief, or "" when the company was not researched. */
   companyWhatTheyDo: string;
   hiringProcess: HiringProcess;
+  /** Unverified excerpts from public discussion. Only the company-fit prompt sees them. */
+  publicDiscussion?: string[];
   /** Prompts already in the kit, so a gap-filling pass does not repeat them. */
   existingPrompts?: string[];
 }
@@ -222,6 +224,7 @@ export async function generateQuestions(
     tag("requirements", plan.requirements.map((r) => `${r.id} [${r.priority}] ${r.text}`).join("\n")),
     tag("company", context.companyWhatTheyDo),
     tag("interview_process", context.hiringProcess.stages.map((s) => `- ${s.name}: ${s.description}`).join("\n")),
+    plan.category === "company-fit" ? tag("public_discussion", (context.publicDiscussion ?? []).map((e) => `- ${e}`).join("\n")) : "",
     tag("existing_questions", (context.existingPrompts ?? []).map((p) => `- ${p}`).join("\n")),
     `Write ${plan.count} question(s).${plan.notes.length ? `\n${plan.notes.join("\n")}` : ""}`,
   ]

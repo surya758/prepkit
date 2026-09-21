@@ -2,6 +2,8 @@ import { checkCoverage } from "../coverage/coverage";
 import type { LlmProvider } from "../llm/provider";
 import { crawlSite } from "../retrieval/crawl-site";
 import type { CrawlOptions, CrawlResult } from "../retrieval/crawl-site";
+import { findPublicDiscussion } from "../retrieval/public-discussion";
+import type { DiscussionOptions, DiscussionResult } from "../retrieval/public-discussion";
 import { validateKit } from "../schema/kit";
 import type { Flashcard, Kit } from "../schema/kit";
 import { buildSchedule } from "../scheduling/schedule";
@@ -40,9 +42,12 @@ export interface GenerateKitOptions {
   now?: () => number;
   strict?: boolean;
   crawl?: Partial<CrawlOptions>;
+  /** Tests inject a fake network here so that none of them ever contacts the search API. */
+  publicDiscussion?: DiscussionOptions;
 }
 
 const UNREACHABLE: CrawlResult = { reachable: false, companyName: "", pages: [], log: [] };
+const NOT_SEARCHED: DiscussionResult = { discussion: { searched: false, source: "Hacker News", query: "", hits: [] }, log: [] };
 
 export async function generateKit(input: KitInput, options: GenerateKitOptions): Promise<Kit> {
   const ctx = createContext({
@@ -94,6 +99,14 @@ export async function generateKit(input: KitInput, options: GenerateKitOptions):
     });
   }
 
+  // What candidates say in public about interviewing there. It needs the company's name, so it
+  // starts once the crawl and the description are in, and runs alongside the brief.
+  const discussing = runStep(
+    ctx,
+    { name: "public_discussion", policy: "degrade", fallback: NOT_SEARCHED, skipPastDeadline: true },
+    () => findPublicDiscussion(crawl.companyName || profile.company, options.publicDiscussion),
+  );
+
   const research = await runStep(
     ctx,
     {
@@ -106,12 +119,15 @@ export async function generateKit(input: KitInput, options: GenerateKitOptions):
     () => researchCompany(options.llm, crawl, ctx),
   );
 
-  // Draft per category, check coverage, repair the gaps, check again. Each model call inside
-  // is its own step, so one category failing or running out of time costs only that category.
+  const discussed = await discussing;
+  ctx.researchLog.push(...discussed.log);
+
   // The brief for an unreadable company is a fixed statement, not research; it must never be
   // fed to later steps as if it were facts about the company.
   const companyResearched = research.brief.sources.length > 0;
 
+  // Draft per category, check coverage, repair the gaps, check again. Each model call inside
+  // is its own step, so one category failing or running out of time costs only that category.
   const bank = await buildQuestionBank(
     options.llm,
     {
@@ -122,6 +138,7 @@ export async function generateKit(input: KitInput, options: GenerateKitOptions):
       companyResearched,
       companyWhatTheyDo: companyResearched ? research.brief.what_they_do : "",
       hiringProcess: research.hiringProcess,
+      publicDiscussion: discussed.discussion.hits.map((hit) => hit.excerpt),
     },
     ctx,
   );
@@ -181,6 +198,7 @@ export async function generateKit(input: KitInput, options: GenerateKitOptions):
       warnings: ctx.warnings,
       research_log: ctx.researchLog,
       hiring_process: research.hiringProcess,
+      public_discussion: discussed.discussion,
       requirement_evidence: profile.evidence,
     };
 
