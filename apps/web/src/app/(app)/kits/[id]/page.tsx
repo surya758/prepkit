@@ -3,6 +3,8 @@
 import { LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
+import { useState } from "react";
+import { DeleteKitButton } from "@/components/delete-kit-button";
 import { GenerationTimeline } from "@/components/generation-timeline";
 import { KitStatusBadge } from "@/components/kit-status-badge";
 import { Button } from "@/components/ui/button";
@@ -14,7 +16,8 @@ import { buildTimeline } from "@/lib/timeline";
 
 export default function KitPage() {
   const { id } = useParams<{ id: string }>();
-  const kit = useKit(id);
+  const [deleting, setDeleting] = useState(false);
+  const kit = useKit(id, { enabled: !deleting });
 
   // A kit that does not exist and a kit that is someone else's get the same answer from the API.
   if (kit.error instanceof ApiError && kit.error.status === 404) notFound();
@@ -40,13 +43,13 @@ export default function KitPage() {
           </Button>
         </div>
       ) : (
-        <Loaded kit={kit.data} />
+        <Loaded kit={kit.data} onDeleting={setDeleting} />
       )}
     </main>
   );
 }
 
-function Loaded({ kit }: { kit: KitDetail }) {
+function Loaded({ kit, onDeleting }: { kit: KitDetail; onDeleting: (deleting: boolean) => void }) {
   const retry = useRetryKit(kit.id);
   const generating = isGenerating(kit);
   const steps = buildTimeline(kit.progress, generating);
@@ -59,10 +62,13 @@ function Loaded({ kit }: { kit: KitDetail }) {
           <h1 className="min-w-0 font-display text-4xl leading-tight break-words">{kitTitle(kit)}</h1>
           <KitStatusBadge status={kit.status} />
         </div>
-        <p className="text-sm text-muted-foreground">
-          {kit.kit?.source.company && <>{kit.kit.source.company} · </>}
-          {kit.input.days} {kit.input.days === 1 ? "day" : "days"} to prepare
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            {kit.kit?.source.company && <>{kit.kit.source.company} · </>}
+            {kit.input.days} {kit.input.days === 1 ? "day" : "days"} to prepare
+          </p>
+          <DeleteKitButton kitId={kit.id} title={kitTitle(kit)} onDeleting={onDeleting} />
+        </div>
       </header>
 
       {kit.status === "failed" && (

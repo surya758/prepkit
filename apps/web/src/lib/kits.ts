@@ -94,9 +94,12 @@ export function kitTitle(kit: Pick<KitDetail, "kit" | "input">): string {
 
 const KIT_POLL_MS = 2_000;
 
-export function useKit(id: string) {
+export function useKit(id: string, { enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: ["kit", id],
+    // Switched off while the kit is being deleted: a poll landing just after the delete would
+    // be answered 404, and the page would flash "not found" on its way back to the list.
+    enabled,
     queryFn: async ({ signal }) => (await api<{ kit: KitDetail }>(`/kits/${id}`, { signal })).kit,
     // The server writes every step as it happens; this is what makes the timeline move. It
     // stops asking as soon as the kit is ready or has failed.
@@ -109,5 +112,25 @@ export function useRetryKit(id: string) {
   return useMutation({
     mutationFn: () => api<{ kit: KitSummary }>(`/kits/${id}/retry`, { method: "POST" }),
     onSuccess: () => Promise.all([queryClient.invalidateQueries({ queryKey: ["kit", id] }), queryClient.invalidateQueries({ queryKey: ["kits"] })]),
+  });
+}
+
+/**
+ * `onDeleted` and `onFailed` are given here rather than to mutate(). Deleting removes the kit
+ * from the cache, the page reacts by unmounting the button that asked for it, and TanStack
+ * Query does not run a mutate() call's own callbacks once its component is gone — the delete
+ * succeeded and the page never left. Callbacks given to useMutation always run.
+ */
+export function useDeleteKit(id: string, { onDeleted, onFailed }: { onDeleted: () => void; onFailed: () => void }) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<void>(`/kits/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      // Leave first, then forget the kit, so nothing on this page asks for it again.
+      onDeleted();
+      queryClient.removeQueries({ queryKey: ["kit", id] });
+      return queryClient.invalidateQueries({ queryKey: ["kits"] });
+    },
+    onError: onFailed,
   });
 }
