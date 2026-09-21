@@ -46,8 +46,8 @@ export function CreateKitForm() {
       onSettled: () => {
         inFlight.current = false;
       },
-      // Back to the list, where the new kit shows as generating and updates by itself.
-      onSuccess: () => router.push("/kits"),
+      // Straight to the kit, where its steps are shown as they happen.
+      onSuccess: ({ kit }) => router.push(`/kits/${kit.id}`),
       onError: (failure) => {
         if (!(failure instanceof ApiError)) return;
         if (failure.code === "KIT_ALREADY_EXISTS") return setFreshKey(crypto.randomUUID());
