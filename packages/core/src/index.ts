@@ -7,5 +7,6 @@ export * from './retrieval/fetch-page';
 export * from './retrieval/robots';
 export * from './retrieval/clean-html';
 export * from './retrieval/score-links';
+export * from './retrieval/crawl-site';
 export * from './pipeline/pipeline-error';
 export * from './pipeline/run-step';

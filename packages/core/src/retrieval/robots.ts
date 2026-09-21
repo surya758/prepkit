@@ -97,6 +97,8 @@ export interface RobotsDecision {
   allowed: boolean;
   /** Set when disallowed, ready to go into the research log. */
   reason?: string;
+  /** Disallowed because robots.txt could not be reached, which usually means the site is down. */
+  unreachable?: boolean;
 }
 
 export interface RobotsCheckerOptions extends FetchPageOptions {
@@ -156,7 +158,7 @@ export function createRobotsChecker(options: RobotsCheckerOptions): RobotsChecke
 
       const root = await load(`${url.origin}/robots.txt`);
       if (root.unreachable) {
-        return { allowed: false, reason: `robots.txt unreachable (${root.unreachable})` };
+        return { allowed: false, unreachable: true, reason: `robots.txt unreachable (${root.unreachable})` };
       }
       if (!root.rules.isAllowed(path)) {
         return { allowed: false, reason: "Disallowed by robots.txt" };
