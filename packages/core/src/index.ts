@@ -27,3 +27,4 @@ export * from './pipeline/steps/flashcards';
 export * from './pipeline/generate-kit';
 export * from './batch/run-batch';
 export * from './builder/kit-editor';
+export * from './builder/regenerate';
