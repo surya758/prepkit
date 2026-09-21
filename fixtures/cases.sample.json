@@ -1,0 +1,32 @@
+[
+  {
+    "id": "case-01-published-process",
+    "jd": "Senior Frontend Engineer — Dispatch (Remote, EU)\n\nAcme plans two million deliveries a month. You will own the dispatcher dashboard.\n\nRequirements\n- 5+ years of professional experience with React\n- Strong TypeScript\n- You have mentored junior engineers\n- Comfortable owning a feature from design to production\n\nNice to have\n- Experience with map rendering (Mapbox or Leaflet)\n- Logistics domain knowledge is a plus",
+    "company_url": "http://localhost:8099/acme/",
+    "days": 5
+  },
+  {
+    "id": "case-02-no-hiring-page",
+    "jd": "Backend Engineer, Payroll\n\nWhat you'll do\n- Build the payroll calculation engine\n\nWhat we're looking for\n- 3+ years building backend services in Node.js or Go\n- Strong SQL and experience with PostgreSQL\n- Clear written communication\n\nBonus\n- Experience with payroll or tax rules",
+    "company_url": "http://localhost:8099/globex/",
+    "days": 7
+  },
+  {
+    "id": "case-03-two-line-description",
+    "jd": "Developer wanted for a growing startup.\nSend your CV to jobs@example.com.",
+    "company_url": "http://localhost:8099/initech/",
+    "days": 3
+  },
+  {
+    "id": "case-04-unreachable-company",
+    "jd": "QA Engineer\n\nRequirements\n- 3+ years of test automation\n- Cypress or Playwright\n- You are comfortable writing test plans\n\nNice to have\n- Performance testing",
+    "company_url": "http://localhost:1/nothing-here/",
+    "days": 1
+  },
+  {
+    "id": "case-05-same-posting-more-days",
+    "jd": "Senior Frontend Engineer — Dispatch (Remote, EU)\n\nAcme plans two million deliveries a month. You will own the dispatcher dashboard.\n\nRequirements\n- 5+ years of professional experience with React\n- Strong TypeScript\n- You have mentored junior engineers\n- Comfortable owning a feature from design to production\n\nNice to have\n- Experience with map rendering (Mapbox or Leaflet)\n- Logistics domain knowledge is a plus",
+    "company_url": "http://localhost:8099/acme/",
+    "days": 60
+  }
+]
