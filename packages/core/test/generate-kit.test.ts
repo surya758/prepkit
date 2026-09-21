@@ -175,17 +175,29 @@ describe("generateKit — public discussion of the interview process", () => {
   it("puts what it found in the kit, and gives it to the company-fit prompt only, as unverified", async () => {
     const llm = scriptedModel();
     const fetchImpl = hackerNews([
-      { objectID: "41000001", story_title: "Ask HN: interviews", comment_text: "The interview process at Acme was a take-home and then a system design round." },
+      {
+        objectID: "41000001",
+        story_title: "Ask HN: interviews",
+        comment_text: "The interview process at Acme was a take-home and then a system design round.",
+        created_at: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+      },
     ]);
     const kit = await generateKit({ jd: JD, companyUrl: `${sites.origin}/acme/`, days: 3 }, options({ llm, publicDiscussion: { fetchImpl } }));
 
     expect(kit.public_discussion!.hits).toEqual([
-      { title: "Ask HN: interviews", url: "https://news.ycombinator.com/item?id=41000001", excerpt: expect.stringContaining("interview process at Acme") },
+      {
+        title: "Ask HN: interviews",
+        url: "https://news.ycombinator.com/item?id=41000001",
+        excerpt: expect.stringContaining("interview process at Acme"),
+        posted_at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+      },
     ]);
     const questionCalls = llm.calls.filter((c) => stepOf(c) === "questions");
     const seen = questionCalls.filter((c) => c.user.includes("<public_discussion>")).map(categoryOf);
     expect(seen).toEqual(["company-fit"]);
-    expect(questionCalls.find((c) => categoryOf(c) === "company-fit")!.system).toContain("never state anything from it as fact");
+    const companyFit = questionCalls.find((c) => categoryOf(c) === "company-fit")!;
+    expect(companyFit.system).toContain("never state anything from it as fact");
+    expect(companyFit.user).toMatch(/<public_discussion>\n- \(20\d\d\) /); // the year travels with the excerpt
   });
 
   it("does not search when the company's name is unknown, and the kit still ships", async () => {

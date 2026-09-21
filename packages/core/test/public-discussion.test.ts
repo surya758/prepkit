@@ -7,7 +7,12 @@ interface Hit {
   story_title?: string | null;
   comment_text?: string | null;
   story_text?: string | null;
+  created_at?: string;
 }
+
+// The tests run at a fixed moment, so "recent" and "too old" never drift.
+const NOW = Date.parse("2026-09-21T00:00:00Z");
+const RECENT = "2025-06-01T12:00:00Z";
 
 /** A fake search API: records the URL it was asked for and returns the scripted hits. */
 function network(hits: Hit[] | Error | Response) {
@@ -16,10 +21,15 @@ function network(hits: Hit[] | Error | Response) {
     if (hits instanceof Response) return hits;
     return new Response(JSON.stringify({ hits }), { status: 200 });
   });
-  return { fetchImpl: fetchImpl as unknown as typeof fetch, calls: fetchImpl.mock.calls };
+  return { fetchImpl: fetchImpl as unknown as typeof fetch, calls: fetchImpl.mock.calls, now: () => NOW };
 }
 
-const comment = (objectID: string, comment_text: string, story_title = "Ask HN: Who is hiring?"): Hit => ({ objectID, comment_text, story_title });
+const comment = (objectID: string, comment_text: string, story_title = "Ask HN: Who is hiring?", created_at = RECENT): Hit => ({
+  objectID,
+  comment_text,
+  story_title,
+  created_at,
+});
 
 describe("findPublicDiscussion — the search", () => {
   it("searches Hacker News for the quoted company name plus 'interview'", async () => {
@@ -57,20 +67,21 @@ describe("findPublicDiscussion — what counts as relevant", () => {
         title: "Ask HN: Who is hiring?",
         url: "https://news.ycombinator.com/item?id=41000001",
         excerpt: expect.stringContaining("interviewed at Stripe"),
+        posted_at: "2025-06-01T12:00:00.000Z",
       },
     ]);
     expect(publicDiscussionSchema.safeParse(discussion).success).toBe(true);
-    expect(log[0]).toMatchObject({ outcome: "ok", reason: "1 relevant discussion(s) found out of 1 search result(s)" });
+    expect(log[0]).toMatchObject({ outcome: "ok", reason: "1 relevant discussion(s) from the last 5 years found out of 1 search result(s)" });
   });
 
   it("rejects a media interview: the word 'interview' alone is not hiring talk", async () => {
-    const net = network([{ objectID: "3545559", title: "Co-Founder of Stripe [YC] Interviewed in Depth (Audio)" }]);
+    const net = network([{ objectID: "3545559", title: "Co-Founder of Stripe [YC] Interviewed in Depth (Audio)", created_at: RECENT }]);
     expect((await findPublicDiscussion("Stripe", net)).discussion.hits).toEqual([]);
   });
 
   // The next three are real results the first version let through for "Acme" and "GitLab".
   it("rejects 'an interview with…': that is how media and user interviews are described", async () => {
-    const net = network([{ objectID: "23981985", title: "A new funding model", comment_text: "Have a look at Sid of GitLab interview with Joe Jacks" }]);
+    const net = network([{ objectID: "23981985", title: "A new funding model", comment_text: "Have a look at Sid of GitLab interview with Joe Jacks", created_at: RECENT }]);
     expect((await findPublicDiscussion("GitLab", net)).discussion.hits).toEqual([]);
   });
 
@@ -116,7 +127,7 @@ describe("findPublicDiscussion — what counts as relevant", () => {
 
   it("builds the link from the numeric id, and ignores hits without one", async () => {
     const net = network([
-      { objectID: "javascript:alert(1)", comment_text: "The interview process at Acme was a take-home." },
+      { objectID: "javascript:alert(1)", comment_text: "The interview process at Acme was a take-home.", created_at: RECENT },
       comment("41000006", "The interview process at Acme was a take-home."),
     ]);
     const { discussion } = await findPublicDiscussion("Acme", net);
@@ -140,9 +151,45 @@ describe("findPublicDiscussion — what counts as relevant", () => {
   });
 });
 
+describe("findPublicDiscussion — recency", () => {
+  const talk = (company: string, n: number) => `Account ${n}: the interview process at ${company} was a phone screen and a take-home.`;
+
+  it("asks the search API only for the last five years", async () => {
+    const net = network([]);
+    await findPublicDiscussion("Stripe", net);
+    const filter = new URL(String(net.calls[0]![0])).searchParams.get("numericFilters");
+    expect(filter).toBe(`created_at_i>${Math.floor((NOW - 5 * 365.25 * 24 * 60 * 60 * 1000) / 1000)}`);
+  });
+
+  it("drops an old account even if the API returns it anyway, and says so", async () => {
+    const net = network([comment("7193950", talk("Stripe", 1), "Stripe interview experience", "2014-02-07T00:29:27Z")]);
+    const { discussion, log } = await findPublicDiscussion("Stripe", net);
+
+    expect(discussion.hits).toEqual([]);
+    expect(log[0]!.reason).toBe(
+      "No public discussion of Stripe's interview process from the last 5 years was found (1 search result(s), none relevant, 1 too old)",
+    );
+  });
+
+  it("puts the newest accounts first, and applies the limit of five after sorting", async () => {
+    const years = [2022, 2026, 2023, 2025, 2024, 2022, 2023];
+    const net = network(years.map((year, i) => comment(String(43000000 + i), talk("Stripe", i), "Thread", `${year}-0${(i % 8) + 1}-15T00:00:00Z`)));
+    const { discussion } = await findPublicDiscussion("Stripe", net);
+
+    expect(discussion.hits).toHaveLength(5);
+    expect(discussion.hits.map((h) => h.posted_at.slice(0, 4))).toEqual(["2026", "2025", "2024", "2023", "2023"]);
+  });
+
+  it("ignores a hit with no usable date rather than guessing how old it is", async () => {
+    const undated: Hit = { objectID: "44000001", comment_text: talk("Stripe", 1) };
+    const garbled = comment("44000002", talk("Stripe", 2), "Thread", "last Tuesday");
+    expect((await findPublicDiscussion("Stripe", network([undated, garbled]))).discussion.hits).toEqual([]);
+  });
+});
+
 describe("findPublicDiscussion — honest about finding nothing", () => {
   it("reports an empty result, which is the normal case for most companies", async () => {
-    const net = network([{ objectID: "1", title: "Show HN: a thing unrelated to anything" }]);
+    const net = network([{ objectID: "1", title: "Show HN: a thing unrelated to anything", created_at: RECENT }]);
     const { discussion, log } = await findPublicDiscussion("Initech", net);
 
     expect(discussion).toMatchObject({ searched: true, hits: [] });
@@ -150,7 +197,7 @@ describe("findPublicDiscussion — honest about finding nothing", () => {
       expect.objectContaining({
         step: "public_discussion",
         outcome: "empty",
-        reason: "No public discussion of Initech's interview process was found (1 search result(s), none relevant)",
+        reason: "No public discussion of Initech's interview process from the last 5 years was found (1 search result(s), none relevant)",
       }),
     ]);
   });
