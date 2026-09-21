@@ -2,7 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PipelineError, generateKit, validateKit } from "../src";
 import type { GenerateKitOptions, ProgressEvent } from "../src";
 import { createFakeProvider } from "../src/testing";
-import type { FakeReply } from "../src/testing";
+import { categoryOf, goodQuestions, isRepairCall, scriptedModel as stepAwareModel, stepOf } from "./fixtures/scripted-model";
+import type { Script } from "./fixtures/scripted-model";
 import { startCompanySites } from "./fixtures/company-sites";
 import type { FixtureServer } from "./fixtures/company-sites";
 
@@ -39,11 +40,9 @@ const researchReply = {
   ],
 };
 
-/** A model that answers by which step is asking, so the two parallel steps cannot swap replies. */
-function scriptedModel(replies: { profile?: FakeReply; research?: FakeReply } = {}) {
-  return createFakeProvider((request) =>
-    request.user.startsWith("<job_description>") ? (replies.profile ?? profileReply) : (replies.research ?? researchReply),
-  );
+/** The shared step-aware fake, defaulting to a well-behaved model for this description and site. */
+function scriptedModel(replies: Script = {}) {
+  return stepAwareModel({ profile: profileReply, research: researchReply, ...replies });
 }
 
 const options = (extra: Partial<GenerateKitOptions> = {}): GenerateKitOptions => ({
@@ -93,10 +92,27 @@ describe("generateKit — end to end against a company site", () => {
     }
   });
 
-  it("reports every requirement as uncovered while there are no questions, rather than claiming coverage", async () => {
+  it("covers every requirement with a question, and schedules every question", async () => {
     const kit = await generateKit({ jd: JD, companyUrl: `${sites.origin}/acme/`, days: 3 }, options());
-    expect(kit.questions).toEqual([]);
-    expect(kit.coverage).toEqual({ uncovered_requirement_ids: ["r1", "r2", "r3"], passes: 1 });
+
+    expect(kit.coverage).toEqual({ uncovered_requirement_ids: [], passes: 1 });
+    expect(new Set(kit.questions.map((q) => q.category))).toEqual(new Set(["technical", "behavioural", "system-design", "company-fit"]));
+
+    const scheduled = new Set(kit.schedule.days.flatMap((d) => d.question_ids));
+    expect(kit.questions.every((q) => scheduled.has(q.id))).toBe(true);
+  });
+
+  it("runs the second pass when the first draft misses a must-have, and reports two passes", async () => {
+    const llm = scriptedModel({
+      questions: (request) => {
+        const reply = goodQuestions(request) as { questions: { requirement_ids: string[] }[] };
+        return isRepairCall(request) ? reply : { questions: reply.questions.filter((q) => !q.requirement_ids.includes("r2")) };
+      },
+    });
+    const kit = await generateKit({ jd: JD, companyUrl: `${sites.origin}/globex/`, days: 3 }, options({ llm }));
+
+    expect(kit.coverage).toEqual({ uncovered_requirement_ids: [], passes: 2 });
+    expect(kit.questions.some((q) => q.requirement_ids.includes("r2"))).toBe(true);
   });
 
   it("records what the crawler did in the kit's research log", async () => {
@@ -142,7 +158,10 @@ describe("generateKit — the company cannot be researched", () => {
     expect(kit.company_brief.summary).toContain("intentionally empty rather than guessed");
     expect(kit.hiring_process).toEqual({ found: false, stages: [], source: null });
     expect(kit.warnings!.map((w) => w.code)).toEqual(expect.arrayContaining(["COMPANY_UNREACHABLE", "COMPANY_NOT_RESEARCHED"]));
-    expect(llm.calls).toHaveLength(1); // only the description was read; nothing was made up about the company
+    // Nothing was asked, and so nothing made up, about a company we could not read.
+    expect(llm.calls.filter((c) => stepOf(c) === "research")).toHaveLength(0);
+    expect(llm.calls.map(categoryOf)).not.toContain("company-fit");
+    expect(kit.questions.length).toBeGreaterThan(0); // the description alone still yields questions
   });
 
   it("falls back to the company name the description states", async () => {
