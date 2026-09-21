@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { CONFIDENCE_LEVELS, nextSessionOrder, practiceProgress, recordRating } from "../src";
+import { CONFIDENCE_LEVELS, nextSessionOrder, practiceProgress } from "../src";
 import type { Confidence, Flashcard, Kit, PracticeRecord } from "../src";
 import { makeKit } from "./fixtures/kit";
 
@@ -10,18 +10,6 @@ const rated = (cardId: string, confidence: Confidence, day: number, reps = 1): P
   confidence,
   reps,
   reviewedAt: new Date(Date.UTC(2026, 8, day)).toISOString(),
-});
-
-describe("recordRating", () => {
-  const at = new Date("2026-09-21T10:00:00Z");
-
-  it("starts a record the first time a card is rated", () => {
-    expect(recordRating(undefined, "f1", 2, at)).toEqual({ cardId: "f1", confidence: 2, reps: 1, reviewedAt: "2026-09-21T10:00:00.000Z" });
-  });
-
-  it("keeps only the latest rating, and counts the review", () => {
-    expect(recordRating(rated("f1", 1, 20, 3), "f1", 4, at)).toEqual({ cardId: "f1", confidence: 4, reps: 4, reviewedAt: "2026-09-21T10:00:00.000Z" });
-  });
 });
 
 describe("nextSessionOrder", () => {

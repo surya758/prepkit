@@ -25,10 +25,6 @@ export interface PracticeRecord {
   reviewedAt: string;
 }
 
-export function recordRating(previous: PracticeRecord | undefined, cardId: string, confidence: Confidence, at: Date): PracticeRecord {
-  return { cardId, confidence, reps: (previous?.reps ?? 0) + 1, reviewedAt: at.toISOString() };
-}
-
 /**
  * Every card in the kit, in the order to practise them next:
  *
