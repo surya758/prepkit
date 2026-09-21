@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { Session, SessionRepository, User, UserRepository } from "../../src/auth/repository";
 import { initialMeta } from "@prepkit/core";
+import type { PracticeRecord } from "@prepkit/core";
 import { toSummary } from "../../src/kits/repository";
 import type { KitRecord, KitRepository } from "../../src/kits/repository";
+import type { PracticeRepository } from "../../src/practice/repository";
 
 // In-memory implementations of the repository interfaces. The API's tests run against these,
 // so `npm test` needs no database, no downloaded binary and no network. They honour the same
@@ -123,6 +125,30 @@ export function createMemoryKitRepository(): KitRepository & { all(): KitRecord[
       const unfinished = [...kits.values()].filter((k) => k.status === "queued" || k.status === "running");
       for (const record of unfinished) Object.assign(record, { status: "failed", error, updatedAt: at });
       return unfinished.length;
+    },
+  };
+}
+
+export function createMemoryPracticeRepository(): PracticeRepository & { count(): number } {
+  // The key is the same triple as the unique index.
+  const records = new Map<string, PracticeRecord>();
+  const prefix = (userId: string, kitId: string) => `${userId}|${kitId}|`;
+
+  return {
+    count: () => records.size,
+    async listForKit(userId, kitId) {
+      return [...records].filter(([key]) => key.startsWith(prefix(userId, kitId))).map(([, record]) => ({ ...record }));
+    },
+    async rate(userId, kitId, cardId, confidence, at) {
+      const key = prefix(userId, kitId) + cardId;
+      const record: PracticeRecord = { cardId, confidence, reps: (records.get(key)?.reps ?? 0) + 1, reviewedAt: at.toISOString() };
+      records.set(key, record);
+      return { ...record };
+    },
+    async deleteForKit(userId, kitId) {
+      const keys = [...records.keys()].filter((key) => key.startsWith(prefix(userId, kitId)));
+      for (const key of keys) records.delete(key);
+      return keys.length;
     },
   };
 }
