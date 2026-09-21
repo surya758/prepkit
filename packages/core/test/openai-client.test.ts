@@ -16,9 +16,9 @@ function harness(responses: (Response | Error)[]) {
     return next;
   });
   const client = createOpenAiClient({
-    baseUrl: "https://api.mistral.ai/v1/",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai/",
     apiKey: "test-key",
-    model: "mistral-large-2512",
+    model: "gemini-3.5-flash-lite",
     limiter,
     fetchImpl: fetchImpl as unknown as typeof fetch,
     sleep,
@@ -40,10 +40,10 @@ describe("openai-compatible client — request", () => {
     await h.client.complete({ ...request, maxOutputTokens: 500, temperature: 0 });
 
     const [url, init] = h.fetchImpl.mock.calls[0]!;
-    expect(url).toBe("https://api.mistral.ai/v1/chat/completions");
+    expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
     expect((init!.headers as Record<string, string>).authorization).toBe("Bearer test-key");
     expect(JSON.parse(init!.body as string)).toEqual({
-      model: "mistral-large-2512",
+      model: "gemini-3.5-flash-lite",
       messages: [
         { role: "system", content: "Return JSON." },
         { role: "user", content: "Job description goes here." },
@@ -59,7 +59,7 @@ describe("openai-compatible client — request", () => {
     expect(await h.client.complete(request)).toEqual({
       text: '{"ok":true}',
       truncated: false,
-      model: "mistral-large-2512",
+      model: "gemini-3.5-flash-lite",
       totalTokens: 321,
     });
   });
@@ -131,7 +131,7 @@ describe("openai-compatible client — provider trouble", () => {
     const h = harness([status(500), status(502), status(503), status(504)]);
     await expect(h.client.complete(request)).rejects.toMatchObject({
       code: "LLM_UNAVAILABLE",
-      message: "mistral-large-2512 failed after 4 attempts: HTTP 504",
+      message: "gemini-3.5-flash-lite failed after 4 attempts: HTTP 504",
     });
   });
 });
@@ -149,7 +149,7 @@ describe("openai-compatible client — errors that retrying cannot fix", () => {
   });
 
   it("includes the provider's explanation, which is how a wrong model id gets noticed", async () => {
-    const h = harness([status(404, {}, '{"message":"model mistral-larg not found"}')]);
-    await expect(h.client.complete(request)).rejects.toThrow(/model mistral-larg not found/);
+    const h = harness([status(404, {}, '{"message":"model gemini-3.5-flash-lit not found"}')]);
+    await expect(h.client.complete(request)).rejects.toThrow(/model gemini-3.5-flash-lit not found/);
   });
 });

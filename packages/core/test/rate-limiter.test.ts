@@ -46,7 +46,7 @@ describe("rate limiter — requests per minute", () => {
   });
 
   it("honours an explicit minimum gap, for providers that limit per second", async () => {
-    // Mistral: 1 request per second. 60/min alone would allow two calls 500 ms apart.
+    // A provider that allows 1 request per second: 60/min alone would allow two calls 500 ms apart.
     let time = 0;
     const limiter = createRateLimiter({
       requestsPerMinute: 60,

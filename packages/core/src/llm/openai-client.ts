@@ -3,8 +3,8 @@ import type { LlmProvider, LlmRequest, LlmResponse } from "./provider";
 import { estimateTokens } from "./rate-limiter";
 import type { RateLimiter } from "./rate-limiter";
 
-// One client for every provider that speaks the OpenAI chat-completions format — Mistral,
-// Gemini's compatibility endpoint, Groq and others. Plain fetch, no SDK: switching provider
+// One client for every provider that speaks the OpenAI chat-completions format — Gemini's
+// compatibility endpoint, Groq and others. Plain fetch, no SDK: switching provider
 // is a change of base URL, model and key, not of code.
 
 export const DEFAULT_MAX_OUTPUT_TOKENS = 2_000;

@@ -20,7 +20,7 @@ export interface LlmResponse {
 }
 
 export interface LlmProvider {
-  /** For logs and warnings, e.g. "mistral-large-2512". */
+  /** For logs and warnings, e.g. "gemini-3.5-flash-lite". */
   name: string;
   complete(request: LlmRequest): Promise<LlmResponse>;
 }
