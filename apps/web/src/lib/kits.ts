@@ -54,3 +54,17 @@ export function useCreateKit() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["kits"] }),
   });
 }
+
+/** The outcome for one role of an uploaded file. Roles succeed or fail independently. */
+export type BulkResult =
+  | { index: number; status: "created"; kit: KitSummary }
+  | { index: number; status: "duplicate"; kitId?: string; message: string }
+  | { index: number; status: "invalid"; message: string; details?: { path: string; message: string }[] };
+
+export function useCreateKits() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (items: unknown[]) => api<{ results: BulkResult[] }>("/kits/bulk", { method: "POST", body: { items } }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["kits"] }),
+  });
+}

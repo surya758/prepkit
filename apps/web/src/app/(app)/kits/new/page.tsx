@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CreateKitForm } from "@/components/create-kit-form";
+import { UploadCases } from "@/components/upload-cases";
 
 export const metadata: Metadata = { title: "New kit" };
 
@@ -15,6 +16,13 @@ export default function NewKitPage() {
         <p className="text-muted-foreground">Paste the job description. The kit is built from it and from what the company says about itself.</p>
       </div>
       <CreateKitForm />
+
+      <section aria-labelledby="upload-heading" className="flex flex-col gap-3 border-t pt-6">
+        <h2 id="upload-heading" className="font-display text-2xl">
+          Or upload several roles
+        </h2>
+        <UploadCases />
+      </section>
     </main>
   );
 }
