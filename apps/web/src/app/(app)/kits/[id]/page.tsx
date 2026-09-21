@@ -6,6 +6,7 @@ import { notFound, useParams } from "next/navigation";
 import { useState } from "react";
 import { DeleteKitButton } from "@/components/delete-kit-button";
 import { GenerationTimeline } from "@/components/generation-timeline";
+import { KitView } from "@/components/kit/kit-view";
 import { KitStatusBadge } from "@/components/kit-status-badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -84,46 +85,46 @@ function Loaded({ kit, onDeleting }: { kit: KitDetail; onDeleting: (deleting: bo
       )}
 
       {kit.status === "ready" && kit.kit && (
-        <section aria-labelledby="ready-heading" className="flex flex-col gap-4 rounded-xl border bg-card p-5">
-          <h2 id="ready-heading" className="font-display text-2xl">
-            Your kit is ready
-          </h2>
-          <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {[
-              ["Requirements", kit.kit.role.requirements.length],
-              ["Questions", kit.kit.questions.length],
-              ["Flashcards", kit.kit.flashcards.length],
-              ["Days planned", kit.kit.schedule.days.length],
-            ].map(([label, value]) => (
-              <div key={label} className="flex flex-col">
-                <dd className="font-display text-3xl">{value}</dd>
-                <dt className="text-sm text-muted-foreground">{label}</dt>
-              </div>
-            ))}
-          </dl>
+        <>
           {kit.kit.warnings && kit.kit.warnings.length > 0 && (
-            <ul className="flex flex-col gap-1 border-t pt-4 text-sm text-muted-foreground">
-              {kit.kit.warnings.map((warning, index) => (
-                <li key={`${warning.code}-${index}`}>{warning.message}</li>
-              ))}
-            </ul>
+            <details className="rounded-xl border bg-card px-5 py-3 text-sm">
+              <summary className="cursor-pointer font-semibold">
+                {kit.kit.warnings.length} {kit.kit.warnings.length === 1 ? "thing" : "things"} to know about this kit
+              </summary>
+              <ul className="flex list-disc flex-col gap-1 pt-3 pl-5 text-muted-foreground">
+                {kit.kit.warnings.map((warning, index) => (
+                  <li key={`${warning.code}-${index}`}>{warning.message}</li>
+                ))}
+              </ul>
+            </details>
           )}
-        </section>
+          <KitView kit={kit.kit} />
+        </>
       )}
 
-      <section aria-labelledby="steps-heading" className="flex flex-col gap-3">
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 id="steps-heading" className="font-display text-2xl">
-            {generating ? "Building your kit" : "How this kit was built"}
-          </h2>
-          {/* Announced politely as it changes; the list itself is not, or every row would be read out again. */}
-          <p role="status" className="text-sm text-muted-foreground">
-            {steps.length > 0 && `${done} of ${steps.length} steps done`}
-          </p>
-        </div>
-        {generating && <p className="text-sm text-muted-foreground">This takes about half a minute. You can leave the page; it keeps going.</p>}
-        <GenerationTimeline steps={steps} />
-      </section>
+      {kit.status === "ready" ? (
+        // A finished kit's steps are reference, not news: folded away until asked for.
+        <details className="rounded-xl border bg-card px-5 py-3">
+          <summary className="cursor-pointer text-sm font-semibold">How this kit was built · {steps.length} steps</summary>
+          <div className="pt-2">
+            <GenerationTimeline steps={steps} />
+          </div>
+        </details>
+      ) : (
+        <section aria-labelledby="steps-heading" className="flex flex-col gap-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 id="steps-heading" className="font-display text-2xl">
+              {generating ? "Building your kit" : "How far it got"}
+            </h2>
+            {/* Announced politely as it changes; the list itself is not, or every row would be read out again. */}
+            <p role="status" className="text-sm text-muted-foreground">
+              {steps.length > 0 && `${done} of ${steps.length} steps done`}
+            </p>
+          </div>
+          {generating && <p className="text-sm text-muted-foreground">This takes about half a minute. You can leave the page; it keeps going.</p>}
+          <GenerationTimeline steps={steps} />
+        </section>
+      )}
     </>
   );
 }
