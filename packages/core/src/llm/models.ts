@@ -48,6 +48,9 @@ export interface ModelDefinition {
  *   gemini-3.5-flash-lite  15 req/min  250,000 tokens/min    500 req/day
  *   gemini-3.1-flash-lite  15 req/min  250,000 tokens/min    500 req/day
  *   qwen/qwen3.8-27b       30 req/min    8,000 tokens/min  1,000 req/day
+ *
+ * Gemini's token limit counts input tokens only. The limiter counts input and output for
+ * every model, which is stricter than Gemini needs and correct for providers that count both.
  */
 export const MODEL_CHAIN: ModelDefinition[] = [
   // Normal operation.

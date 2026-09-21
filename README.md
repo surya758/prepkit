@@ -163,7 +163,15 @@ common way to lose points, so there are four layers, each handling one kind of t
    gets 4. Bugs are rethrown, never masked by a fallback.
 
 At 12 requests per minute the limiter releases the ~40 calls of a five-case batch in about two and
-a half minutes, against the brief's limit of fifteen.
+a half minutes, against the brief's limit of fifteen. This was checked against the provider, not
+only in tests: after the five-case run, Google AI Studio's own usage chart showed a peak of exactly
+12 requests per minute against its limit of 15.
+
+Providers do not count tokens the same way. Gemini's tokens-per-minute limit counts **input**
+tokens only; the limiter counts input and output for every model, which is stricter than Gemini
+requires and right for providers that count both. It costs nothing in practice — Gemini is bound
+by requests for this workload, at under a tenth of its token limit — and it avoids a per-provider
+special case.
 
 **Known limits.** Requests-per-day cannot be tracked from inside one process, so hitting it shows up
 as a 429 and takes the cooldown-and-fallback path. Models 1 and 2 share a provider, so only Groq
@@ -253,9 +261,51 @@ never from the hostname, which may be `localhost`.
 or a `careers.` subdomain is not followed. `sitemap.xml` is not used. Pages are read as UTF-8 and
 capped at 6,000 characters of text each.
 
-**Sources used:** the company's own website, within the limits above.
+**Public discussion of how the company interviews**
+([`public-discussion.ts`](packages/core/src/retrieval/public-discussion.ts)). The source has to
+work from a clean clone with no extra key, which rules out search APIs; and the review sites that
+collect interview reports block automated access, which this project respects rather than works
+around. Hacker News is public, has a free keyless search API, and is where engineers tend to
+describe interview loops, so it is searched for `"<company>" interview`.
 
-_Pending — public discussion of the company's interview process is written with that step._
+Most of what such a search returns is not about being hired, so a hit is kept only if the company
+is named as a whole word with hiring-specific wording nearby ("interview process", "interviewed
+at", "take-home", "phone screen" — not the bare word "interview"). Each rule came from a real
+false match in live results:
+
+| Real result | Why it was wrong | Rule |
+|---|---|---|
+| "Co-Founder of Stripe Interviewed in Depth" | a media interview | bare "interview" is not enough |
+| "Sid of GitLab interview with Joe Jacks" | a media interview | "interview **with**" is excluded |
+| "an interview with user john@acme.com" | an email address | the name does not count inside an address or a domain |
+| "Founder of Acme Packet" | a different company | a name followed by another capitalised word is rejected, unless it is "Inc", "Labs" and the like |
+| one recruiting paragraph pasted into two threads | a duplicate | near-identical openings count once |
+
+Live, that gives relevant results for companies people do write about — for PostHog, _"I interviewed
+for a job at posthog… They pay you for it, but it is a trial work day"_ — and an honest nothing for
+the rest: `No public discussion of Globex's interview process was found`.
+
+At most five hits are kept, each with a title, a short excerpt and a link built in code from the
+numeric item id, never taken from the response. They appear in the kit's top-level
+`public_discussion` for the user to read and judge. Only the company-fit prompt receives the
+excerpts, labelled as unverified comments from strangers that may guide what to prepare for but
+must never be stated as fact. The search runs alongside the company brief, is skipped when the
+company's name is unknown or the kit is out of time, and never fails a kit.
+
+**Known limitation:** a company with a generic name gets generic results. "Acme" is what people
+write when they mean "some company" — _"one offer from Facebook and another from Acme"_ — and no
+text filter can tell that from a real mention. The search is still made, because a fictional
+company served from localhost has no better source; the results are labelled, linked and kept away
+from anything presented as fact.
+
+**Sources used:**
+
+| Source | Used for | Access |
+|---|---|---|
+| The company's own website | the company brief, the hiring page and the interview stages | crawled as described above: same origin, robots.txt honoured, rate-limited |
+| Hacker News, via its public search API at `hn.algolia.com` | public discussion of the company's interview process | one keyless API request per kit |
+
+Nothing else is fetched. Job boards and interview-review sites are not scraped.
 
 ## Research and generation steps
 
@@ -271,6 +321,7 @@ schedule and the final validation are all code.
 | 2 | `jd_profile` | model + code | Title, seniority, location, responsibilities, requirements — see below | kit fails: nothing can be built without requirements |
 | 2′ | `crawl_company_site` | code | Runs **in parallel with step 2**; they do not depend on each other. See [Retrieval](#retrieval-approach-and-sources) | treated as unreachable |
 | 3 | `company_research` | model + code | One call: company brief and, if the hiring page describes them, the interview stages | honest fixed brief + warning |
+| 3′ | `public_discussion` | code | Runs **alongside step 3**, once the company's name is known: what candidates have said in public about interviewing there | `searched: false`, logged |
 | 4 | plan categories | code | Which question categories are generated and how many questions each gets | — |
 | 5 | `questions:<category>` | model + code | One call **per category**, each with its own instructions and only its own requirements | that category is empty; step 6 repairs it |
 | 6 | coverage loop | code + model | Find requirements with no question, ask only for those, check again | gap is reported |
@@ -488,8 +539,12 @@ The cases the brief names, and what happens in each:
 Every warning has a stable code and a plain sentence, and lives in the kit's top-level `warnings`.
 What was fetched, skipped, dropped or corrected is in `research_log`.
 
-_Pending — public discussion of the company's interview process, and what happens when there is
-none, is written with that step._
+**Public discussion of the company turns up nothing at all.** This is the usual case, and it is a
+result rather than a problem: `public_discussion` is `{ "searched": true, "hits": [] }`, the
+research log says "No public discussion of <company>'s interview process was found", no warning is
+raised, and the company-fit questions are written from the company's own site alone. If the search
+could not be made — the company's name is unknown, or the search API is down — `searched` is
+`false` and the log says which.
 
 ## Security
 
