@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PipelineError, batchOutputSchema, runBatch } from "../src";
 import type { BatchEntry, BatchOutput, LlmRequest, RunBatchOptions } from "../src";
 import { scriptedModel, stepOf } from "./fixtures/scripted-model";
+import { noDiscussionNetwork } from "./fixtures/scripted-model";
 import { startCompanySites } from "./fixtures/company-sites";
 import type { FixtureServer } from "./fixtures/company-sites";
 
@@ -36,6 +37,7 @@ const options = (extra: Partial<RunBatchOptions> = {}): RunBatchOptions => ({
   allowPrivateHosts: true,
   strict: true,
   crawl: { sleep: async () => {}, maxAttempts: 1 },
+  publicDiscussion: { fetchImpl: noDiscussionNetwork },
   ...extra,
 });
 

@@ -70,3 +70,7 @@ export function scriptedModel(script: Script, name?: string): FakeProvider {
     return (script.questions ?? goodQuestions)(request);
   }, name);
 }
+
+/** A stand-in for the Hacker News search API that always finds nothing. Keeps pipeline tests offline. */
+export const noDiscussionNetwork = (async () =>
+  new Response(JSON.stringify({ hits: [] }), { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;

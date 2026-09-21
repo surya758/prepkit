@@ -3,7 +3,7 @@ import { kitSchema, validateKit } from '../src';
 import { makeKit } from './fixtures/kit';
 import template from './fixtures/appendix-a.template.json';
 
-const EXTENSION_KEYS = ['warnings', 'research_log', 'hiring_process', 'requirement_evidence'];
+const EXTENSION_KEYS = ['warnings', 'research_log', 'hiring_process', 'requirement_evidence', 'public_discussion'];
 
 // Flattens an object to its key paths; arrays collapse to `[]` using their first element.
 function keyPaths(value: unknown, prefix = ''): string[] {

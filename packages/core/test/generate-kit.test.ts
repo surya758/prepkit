@@ -4,6 +4,7 @@ import type { GenerateKitOptions, ProgressEvent } from "../src";
 import { createFakeProvider } from "../src/testing";
 import { categoryOf, goodQuestions, isRepairCall, scriptedModel as stepAwareModel, stepOf } from "./fixtures/scripted-model";
 import type { Script } from "./fixtures/scripted-model";
+import { noDiscussionNetwork } from "./fixtures/scripted-model";
 import { startCompanySites } from "./fixtures/company-sites";
 import type { FixtureServer } from "./fixtures/company-sites";
 
@@ -50,6 +51,7 @@ const options = (extra: Partial<GenerateKitOptions> = {}): GenerateKitOptions =>
   allowPrivateHosts: true,
   strict: true,
   crawl: { sleep: async () => {}, maxAttempts: 1 },
+  publicDiscussion: { fetchImpl: noDiscussionNetwork },
   ...extra,
 });
 
@@ -155,6 +157,54 @@ describe("generateKit — end to end against a company site", () => {
       "crawl_company_site",
       "jd_profile",
     ]);
+  });
+});
+
+describe("generateKit — public discussion of the interview process", () => {
+  const hackerNews = (hits: object[]) =>
+    (async () => new Response(JSON.stringify({ hits }), { status: 200 })) as unknown as typeof fetch;
+
+  it("records that it searched and found nothing, which is the usual case", async () => {
+    const kit = await generateKit({ jd: JD, companyUrl: `${sites.origin}/acme/`, days: 3 }, options());
+
+    expect(kit.public_discussion).toEqual({ searched: true, source: "Hacker News", query: '"Acme" interview', hits: [] });
+    expect(kit.research_log).toContainEqual(expect.objectContaining({ step: "public_discussion", outcome: "empty" }));
+    expect(validateKit(kit)).toMatchObject({ ok: true });
+  });
+
+  it("puts what it found in the kit, and gives it to the company-fit prompt only, as unverified", async () => {
+    const llm = scriptedModel();
+    const fetchImpl = hackerNews([
+      { objectID: "41000001", story_title: "Ask HN: interviews", comment_text: "The interview process at Acme was a take-home and then a system design round." },
+    ]);
+    const kit = await generateKit({ jd: JD, companyUrl: `${sites.origin}/acme/`, days: 3 }, options({ llm, publicDiscussion: { fetchImpl } }));
+
+    expect(kit.public_discussion!.hits).toEqual([
+      { title: "Ask HN: interviews", url: "https://news.ycombinator.com/item?id=41000001", excerpt: expect.stringContaining("interview process at Acme") },
+    ]);
+    const questionCalls = llm.calls.filter((c) => stepOf(c) === "questions");
+    const seen = questionCalls.filter((c) => c.user.includes("<public_discussion>")).map(categoryOf);
+    expect(seen).toEqual(["company-fit"]);
+    expect(questionCalls.find((c) => categoryOf(c) === "company-fit")!.system).toContain("never state anything from it as fact");
+  });
+
+  it("does not search when the company's name is unknown, and the kit still ships", async () => {
+    const fetchImpl = (async () => {
+      throw new Error("the search API must not be called");
+    }) as unknown as typeof fetch;
+    const kit = await generateKit({ jd: JD, companyUrl: "", days: 2 }, options({ publicDiscussion: { fetchImpl } }));
+
+    expect(kit.public_discussion).toMatchObject({ searched: false, hits: [] });
+    expect(validateKit(kit)).toMatchObject({ ok: true });
+  });
+
+  it("survives the search API being down", async () => {
+    const fetchImpl = (async () => new Response("", { status: 503 })) as unknown as typeof fetch;
+    const kit = await generateKit({ jd: JD, companyUrl: `${sites.origin}/acme/`, days: 2 }, options({ publicDiscussion: { fetchImpl } }));
+
+    expect(kit.public_discussion).toMatchObject({ searched: false, hits: [] });
+    expect(kit.research_log).toContainEqual(expect.objectContaining({ step: "public_discussion", outcome: "failed" }));
+    expect(kit.questions.length).toBeGreaterThan(0);
   });
 });
 
