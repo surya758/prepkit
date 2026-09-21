@@ -3,6 +3,7 @@ import type { Express, Router } from "express";
 import helmet from "helmet";
 import type { Config } from "./config";
 import { createErrorHandler, notFoundHandler } from "./middleware/error-handler";
+import { createSameOriginGuard } from "./middleware/same-origin";
 
 // Builds the application and does nothing else: no port, no database connection, no reading
 // of the environment. Tests create one per case; server.ts creates the real one.
@@ -24,6 +25,8 @@ export function createApp({ config, routers = [], logError }: AppDependencies): 
   // The API sits behind the hosting platform's proxy; this makes req.ip and secure cookies right.
   if (config.isProduction) app.set("trust proxy", 1);
   app.use(helmet());
+  // Before anything that acts: a state-changing request from another website stops here.
+  app.use(createSameOriginGuard(config.webOrigin));
   // A job description is a few kilobytes; a file of several is still well under this.
   app.use(express.json({ limit: MAX_BODY_BYTES }));
 

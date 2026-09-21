@@ -7,11 +7,19 @@ import { z } from "zod";
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
+  MONGODB_URI: z
+    .string({ message: "is required (see .env.example)" })
+    .regex(/^mongodb(\+srv)?:\/\//, { message: "must start with mongodb:// or mongodb+srv://" }),
+  // The address people open the web app at. State-changing requests from any other website
+  // are refused.
+  WEB_ORIGIN: z.url().default("http://localhost:3000"),
 });
 
 export interface Config {
   env: "development" | "test" | "production";
   port: number;
+  mongodbUri: string;
+  webOrigin: string;
   isProduction: boolean;
   /**
    * Whether company URLs on private or loopback addresses may be fetched. Never in production:
@@ -22,11 +30,21 @@ export interface Config {
 }
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
-  const parsed = envSchema.safeParse(env);
+  // `.env.example` lists optional variables with nothing after the "=". Copied as it is, that
+  // sets them to an empty string, which must mean "not set" rather than "invalid".
+  const provided = Object.fromEntries(Object.entries(env).filter(([, value]) => value !== undefined && value.trim() !== ""));
+  const parsed = envSchema.safeParse(provided);
   if (!parsed.success) {
     const problems = parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ");
     throw new Error(`Invalid environment: ${problems}`);
   }
   const isProduction = parsed.data.NODE_ENV === "production";
-  return { env: parsed.data.NODE_ENV, port: parsed.data.PORT, isProduction, allowPrivateHosts: !isProduction };
+  return {
+    env: parsed.data.NODE_ENV,
+    port: parsed.data.PORT,
+    mongodbUri: parsed.data.MONGODB_URI,
+    webOrigin: new URL(parsed.data.WEB_ORIGIN).origin,
+    isProduction,
+    allowPrivateHosts: !isProduction,
+  };
 }
