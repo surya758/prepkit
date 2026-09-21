@@ -18,7 +18,8 @@ import {
   setPinned,
 } from "@prepkit/core";
 import type { BriefField, DraftFlashcard, DraftQuestion, EditableKit, Kit, Question, ScheduleDay } from "@prepkit/core";
-import { AppError, notFound } from "../errors";
+import { AppError } from "../errors";
+import { findReadyKit } from "./ready-kit";
 import type { KitRecord, KitRepository } from "./repository";
 
 // The builder, as a service. The rules are the pure functions in @prepkit/core; this file is
@@ -45,19 +46,11 @@ export interface BuilderServiceDependencies {
 }
 
 type Change = (state: EditableKit) => EditableKit;
-type ReadyKit = KitRecord & { kit: Kit };
 
 export type BuilderService = ReturnType<typeof createBuilderService>;
 
 export function createBuilderService({ kits, regenerate, now = () => new Date() }: BuilderServiceDependencies) {
-  async function loadReady(userId: string, kitId: string): Promise<ReadyKit> {
-    const record = await kits.findOwned(kitId, userId);
-    if (!record) throw notFound("KIT_NOT_FOUND", "That kit does not exist");
-    if (record.status !== "ready" || !record.kit) {
-      throw new AppError(409, "KIT_NOT_READY", `This kit cannot be edited while it is ${record.status}`);
-    }
-    return record as ReadyKit;
-  }
+  const loadReady = (userId: string, kitId: string) => findReadyKit(kits, userId, kitId, "edited");
 
   async function apply(userId: string, kitId: string, change: Change): Promise<KitRecord> {
     for (let attempt = 1; attempt <= MAX_SAVE_ATTEMPTS; attempt++) {
