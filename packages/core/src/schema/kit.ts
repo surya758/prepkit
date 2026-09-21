@@ -75,7 +75,7 @@ export const publicDiscussionSchema = z.object({
   searched: z.boolean(),
   source: z.string(),
   query: z.string(),
-  hits: z.array(z.object({ title: z.string().min(1), url: httpUrl, excerpt: z.string().min(1) })),
+  hits: z.array(z.object({ title: z.string().min(1), url: httpUrl, excerpt: z.string().min(1), posted_at: z.iso.datetime() })),
 });
 
 const kitShape = z.object({

@@ -104,7 +104,7 @@ export async function generateKit(input: KitInput, options: GenerateKitOptions):
   const discussing = runStep(
     ctx,
     { name: "public_discussion", policy: "degrade", fallback: NOT_SEARCHED, skipPastDeadline: true },
-    () => findPublicDiscussion(crawl.companyName || profile.company, options.publicDiscussion),
+    () => findPublicDiscussion(crawl.companyName || profile.company, { now: options.now, ...options.publicDiscussion }),
   );
 
   const research = await runStep(
@@ -138,7 +138,8 @@ export async function generateKit(input: KitInput, options: GenerateKitOptions):
       companyResearched,
       companyWhatTheyDo: companyResearched ? research.brief.what_they_do : "",
       hiringProcess: research.hiringProcess,
-      publicDiscussion: discussed.discussion.hits.map((hit) => hit.excerpt),
+      // The year travels with the excerpt, so the model can weigh how current it is.
+      publicDiscussion: discussed.discussion.hits.map((hit) => `(${hit.posted_at.slice(0, 4)}) ${hit.excerpt}`),
     },
     ctx,
   );

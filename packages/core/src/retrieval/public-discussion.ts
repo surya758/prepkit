@@ -16,6 +16,9 @@ const MAX_HITS_KEPT = 5;
 const PROXIMITY_CHARS = 300;
 const EXCERPT_CHARS = 280;
 const DUPLICATE_PREFIX_CHARS = 120;
+// Interview processes change. A 2013 account of a company's loop is history, not preparation.
+export const MAX_DISCUSSION_AGE_YEARS = 5;
+const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
 
 // "Interview" alone matches "founder interviewed in depth", so the wording has to be about
 // being hired, not about being in the news.
@@ -46,6 +49,7 @@ export interface DiscussionOptions {
   timeoutMs?: number;
   /** Injected in tests, so no test ever touches the network. */
   fetchImpl?: typeof fetch;
+  now?: () => number;
 }
 
 const plain = (html: string) =>
@@ -98,7 +102,14 @@ export async function findPublicDiscussion(companyName: string, options: Discuss
   }
 
   const query = `"${company}" interview`;
-  const url = `${SEARCH_URL}?${new URLSearchParams({ query, tags: "(story,comment)", hitsPerPage: String(HITS_TO_FETCH) })}`;
+  const cutoff = (options.now ?? Date.now)() - MAX_DISCUSSION_AGE_YEARS * YEAR_MS;
+  const url = `${SEARCH_URL}?${new URLSearchParams({
+    query,
+    tags: "(story,comment)",
+    hitsPerPage: String(HITS_TO_FETCH),
+    // Asked of the API, and checked again below in case it is ignored.
+    numericFilters: `created_at_i>${Math.floor(cutoff / 1000)}`,
+  })}`;
   const failed = (reason: string): DiscussionResult => ({
     discussion: nothing(false, query),
     log: [{ step: STEP, url, outcome: "failed", reason }],
@@ -121,8 +132,15 @@ export async function findPublicDiscussion(companyName: string, options: Discuss
 
   const kept: PublicDiscussion["hits"] = [];
   const seen = new Set<string>();
+  let tooOld = 0;
   for (const hit of hits) {
-    if (kept.length >= MAX_HITS_KEPT || !hit.objectID || !/^\d+$/.test(hit.objectID)) continue;
+    if (!hit.objectID || !/^\d+$/.test(hit.objectID)) continue;
+    const postedAt = Date.parse(hit.created_at ?? "");
+    if (!Number.isFinite(postedAt)) continue;
+    if (postedAt < cutoff) {
+      tooOld += 1;
+      continue;
+    }
     const title = plain(hit.title ?? hit.story_title ?? "");
     const excerpt = relevantExcerpt(plain(`${title}. ${hit.comment_text ?? hit.story_text ?? ""}`), company);
     // Recruiters paste the same paragraph into many threads, so near-identical openings are one hit.
@@ -134,15 +152,19 @@ export async function findPublicDiscussion(companyName: string, options: Discuss
       // Built from the numeric id, never taken from the response, so a hit cannot point anywhere else.
       url: `https://news.ycombinator.com/item?id=${hit.objectID}`,
       excerpt,
+      posted_at: new Date(postedAt).toISOString(),
     });
   }
+  // Newest first, then the limit: five recent accounts beat five well-ranked old ones.
+  kept.sort((a, b) => b.posted_at.localeCompare(a.posted_at));
+  kept.length = Math.min(kept.length, MAX_HITS_KEPT);
 
   return {
     discussion: { searched: true, source: "Hacker News", query, hits: kept },
     log: [
       kept.length > 0
-        ? { step: STEP, url, outcome: "ok", reason: `${kept.length} relevant discussion(s) found out of ${hits.length} search result(s)` }
-        : { step: STEP, url, outcome: "empty", reason: `No public discussion of ${company}'s interview process was found (${hits.length} search result(s), none relevant)` },
+        ? { step: STEP, url, outcome: "ok", reason: `${kept.length} relevant discussion(s) from the last ${MAX_DISCUSSION_AGE_YEARS} years found out of ${hits.length} search result(s)` }
+        : { step: STEP, url, outcome: "empty", reason: `No public discussion of ${company}'s interview process from the last ${MAX_DISCUSSION_AGE_YEARS} years was found (${hits.length} search result(s), none relevant${tooOld ? `, ${tooOld} too old` : ""})` },
     ],
   };
 }
