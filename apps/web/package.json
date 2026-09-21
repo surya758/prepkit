@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@prepkit/core": "*",
     "@tanstack/react-query": "^5.103.2",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.3.2",

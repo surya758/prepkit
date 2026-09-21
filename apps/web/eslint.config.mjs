@@ -5,6 +5,17 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    // @prepkit/core is the pipeline: it crawls, resolves DNS and calls models, none of which
+    // can run in a browser. The web app shares its TYPES, so the two never disagree about what
+    // a kit is, and type imports are erased before bundling. Importing its code is an error.
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        { paths: [{ name: "@prepkit/core", message: "Import types only: import type { Kit } from \"@prepkit/core\".", allowTypeImports: true }] },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
