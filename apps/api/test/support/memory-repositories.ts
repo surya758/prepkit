@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Session, SessionRepository, User, UserRepository } from "../../src/auth/repository";
+import { initialMeta } from "@prepkit/core";
 import { toSummary } from "../../src/kits/repository";
 import type { KitRecord, KitRepository } from "../../src/kits/repository";
 
@@ -98,15 +99,22 @@ export function createMemoryKitRepository(): KitRepository & { all(): KitRecord[
       });
     },
     async markReady(id, kit, at) {
-      update(id, (r) => Object.assign(r, { status: "ready", kit: structuredClone(kit), error: null, updatedAt: at }));
+      update(id, (r) => Object.assign(r, { status: "ready", kit: structuredClone(kit), meta: initialMeta(kit), rev: r.rev + 1, error: null, updatedAt: at }));
     },
     async markFailed(id, error, at) {
       update(id, (r) => Object.assign(r, { status: "failed", error, updatedAt: at }));
     },
+    async saveEdited(id, userId, expectedRev, kit, meta, at) {
+      const record = kits.get(id);
+      // The same condition as the MongoDB filter: the owner, a ready kit, and an unchanged revision.
+      if (!record || record.userId !== userId || record.status !== "ready" || record.rev !== expectedRev) return false;
+      Object.assign(record, { kit: structuredClone(kit), meta: structuredClone(meta), rev: record.rev + 1, updatedAt: at });
+      return true;
+    },
     async requeueOwned(id, userId, at) {
       const record = kits.get(id);
       if (!record || record.userId !== userId || record.status !== "failed") return false;
-      Object.assign(record, { status: "queued", error: null, progress: [], updatedAt: at });
+      Object.assign(record, { status: "queued", error: null, progress: [], kit: null, meta: null, updatedAt: at });
       return true;
     },
     async failUnfinished(error, at) {

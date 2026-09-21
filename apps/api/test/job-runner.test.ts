@@ -22,6 +22,8 @@ async function setup(generate: GenerateFn, concurrency = 2) {
       progress: [],
       error: null,
       kit: null,
+      meta: null,
+      rev: 0,
       createdAt: AT,
       updatedAt: AT,
     });
