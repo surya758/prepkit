@@ -15,7 +15,7 @@ const layout = (company: string, title: string, nav: string, body: string) => `<
 
 const filler = (topic: string) =>
   `<p>${topic} `.repeat(1) +
-  "We are a remote team of forty people who care about careful engineering and clear writing.</p>";
+  "We care about careful engineering, clear writing and leaving things better than we found them.</p>";
 
 // --- Acme: the hiring process lives at a path nobody would guess, behind an odd link name.
 // The nav is repeated on nested pages, so it uses site-absolute paths. Relative links are
