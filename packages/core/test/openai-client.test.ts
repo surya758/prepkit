@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { createOpenAiClient, createRateLimiter } from "../src";
+import type { OpenAiClientOptions } from "../src";
 
 // Scripted HTTP responses, consumed one per request, and a clock the test owns.
-function harness(responses: (Response | Error)[]) {
+function harness(responses: (Response | Error)[], options: Partial<OpenAiClientOptions> = {}) {
   let time = 0;
   const sleep = vi.fn(async (ms: number) => {
     time += ms;
@@ -22,6 +23,7 @@ function harness(responses: (Response | Error)[]) {
     limiter,
     fetchImpl: fetchImpl as unknown as typeof fetch,
     sleep,
+    ...options,
   });
   return { client, fetchImpl, sleep, pause, now: () => time };
 }
@@ -133,6 +135,49 @@ describe("openai-compatible client — provider trouble", () => {
       code: "LLM_UNAVAILABLE",
       message: "gemini-3.5-flash-lite failed after 4 attempts: HTTP 504",
     });
+  });
+});
+
+describe("openai-compatible client — a model that is slow rather than down", () => {
+  /** What fetch throws when AbortSignal.timeout() fires. */
+  const timeout = () => new DOMException("The operation was aborted due to timeout", "TimeoutError");
+
+  it("asks again after a timeout by default, as the last model in a chain must", async () => {
+    const h = harness([timeout(), completion("{}")]);
+    expect((await h.client.complete(request)).text).toBe("{}");
+    expect(h.fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives up at once when told not to wait twice, so a backup can take over", async () => {
+    const h = harness([timeout(), completion("{}")], { retryOnTimeout: false, timeoutMs: 25_000 });
+    await expect(h.client.complete(request)).rejects.toMatchObject({
+      code: "LLM_UNAVAILABLE",
+      message: "gemini-3.5-flash-lite did not answer within 25s",
+    });
+    expect(h.fetchImpl).toHaveBeenCalledTimes(1);
+    expect(h.sleep).not.toHaveBeenCalled();
+  });
+
+  it("still retries a dropped connection when told not to retry timeouts", async () => {
+    const h = harness([new TypeError("fetch failed"), completion("{}")], { retryOnTimeout: false });
+    expect((await h.client.complete(request)).text).toBe("{}");
+    expect(h.fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("names the wait when every attempt timed out", async () => {
+    const h = harness([timeout(), timeout()], { maxAttempts: 2, timeoutMs: 60_000 });
+    await expect(h.client.complete(request)).rejects.toMatchObject({
+      code: "LLM_UNAVAILABLE",
+      message: "gemini-3.5-flash-lite failed after 2 attempts: no answer within 60s",
+    });
+  });
+
+  it("passes its time limit to the request", async () => {
+    const limits: number[] = [];
+    const spy = vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => (limits.push(ms), new AbortController().signal));
+    await harness([completion("{}")], { timeoutMs: 25_000 }).client.complete(request);
+    spy.mockRestore();
+    expect(limits).toEqual([25_000]);
   });
 });
 

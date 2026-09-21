@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { MODEL_CHAIN, PROVIDERS, createChainFromEnv } from "../src";
+import { MODEL_CHAIN, PROVIDERS, TIMEOUT_WITH_BACKUP_MS, createChainFromEnv } from "../src";
 
 // A fake network that records which model and key each request used.
 function network(respond: (model: string) => Response) {
@@ -100,6 +100,29 @@ describe("createChainFromEnv — wiring", () => {
     expect(tries("gemini-3.5-flash-lite")).toBe(2);
     expect(tries("gemini-3.1-flash-lite")).toBe(2);
     expect(tries("qwen/qwen3.8-27b")).toBe(4);
+  });
+
+  it("hands over after one timeout when a model has a backup, and lets only the last model wait twice", async () => {
+    const timeout = () => new DOMException("The operation was aborted due to timeout", "TimeoutError");
+    const limits: number[] = [];
+    const spy = vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => (limits.push(ms), new AbortController().signal));
+    const { requests, options } = network(() => {
+      throw timeout();
+    });
+    const { chain } = createChainFromEnv({ GEMINI_API_KEY: "g-key", GROQ_API_KEY: "q-key" }, options);
+
+    await expect(chain.complete(request)).rejects.toMatchObject({ code: "LLM_UNAVAILABLE" });
+    spy.mockRestore();
+
+    expect(requests.map((r) => r.model)).toEqual([
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+      "qwen/qwen3.8-27b",
+      "qwen/qwen3.8-27b",
+      "qwen/qwen3.8-27b",
+      "qwen/qwen3.8-27b",
+    ]);
+    expect(limits).toEqual([TIMEOUT_WITH_BACKUP_MS, TIMEOUT_WITH_BACKUP_MS, 60_000, 60_000, 60_000, 60_000]);
   });
 
   it("gives the second Gemini model the full 4 tries when there is no Groq key behind it", async () => {
