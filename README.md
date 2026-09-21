@@ -134,7 +134,7 @@ npm run dev -w @prepkit/web     # the web app, on http://localhost:3000
 
 | Variable | Required | What it is for |
 |---|---|---|
-| `API_URL` | no | Where the web app forwards `/api/*`. Defaults to `http://localhost:4000`. In production it is set on the web host; locally, Next.js reads it from `apps/web/.env.local`, not from the root `.env` |
+| `API_URL` | no | Where the web app forwards `/api/*`. Defaults to `http://localhost:4000`. In production it is set on the web host. Next.js reads env files from `apps/web`, not from the root `.env`; [`apps/web/.env.example`](apps/web/.env.example) documents it |
 
 The web app needs no other configuration and holds no secrets.
 
