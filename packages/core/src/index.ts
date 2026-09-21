@@ -17,3 +17,5 @@ export * from './llm/complete-json';
 export * from './llm/models';
 export * from './pipeline/pipeline-error';
 export * from './pipeline/run-step';
+export * from './pipeline/grounding';
+export * from './pipeline/steps/jd-profile';
