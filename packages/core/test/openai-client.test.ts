@@ -148,6 +148,12 @@ describe("openai-compatible client — errors that retrying cannot fix", () => {
     expect(h.fetchImpl).toHaveBeenCalledTimes(1);
   });
 
+  it("reports a generation the provider rejected as invalid JSON, so it can be re-asked", async () => {
+    const body = '{"error":{"message":"Failed to validate JSON.","code":"json_validate_failed"}}';
+    const h = harness([status(400, {}, body)]);
+    await expect(h.client.complete(request)).rejects.toMatchObject({ code: "LLM_INVALID_JSON" });
+  });
+
   it("includes the provider's explanation, which is how a wrong model id gets noticed", async () => {
     const h = harness([status(404, {}, '{"message":"model gemini-3.5-flash-lit not found"}')]);
     await expect(h.client.complete(request)).rejects.toThrow(/model gemini-3.5-flash-lit not found/);
