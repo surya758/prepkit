@@ -281,12 +281,23 @@ false match in live results:
 | "Founder of Acme Packet" | a different company | a name followed by another capitalised word is rejected, unless it is "Inc", "Labs" and the like |
 | one recruiting paragraph pasted into two threads | a duplicate | near-identical openings count once |
 
-Live, that gives relevant results for companies people do write about — for PostHog, _"I interviewed
-for a job at posthog… They pay you for it, but it is a trial work day"_ — and an honest nothing for
-the rest: `No public discussion of Globex's interview process was found`.
+**Recent, or not at all.** Interview processes change, and of the first thirty results for a
+well-known company, thirteen were nine to fourteen years old — a 2013 account of an interview loop
+is history, not preparation. The search therefore asks only for the last five years and re-checks
+each date itself in case the filter is ignored; a hit with no usable date is dropped rather than
+guessed at; hits are sorted newest first and only then cut to five; every hit carries its
+`posted_at`; and the model is shown the year with each excerpt — `(2024) When I interviewed at
+Stripe, they had a "debug this!" question ready to go…`. The research log says how many results
+were too old.
 
-At most five hits are kept, each with a title, a short excerpt and a link built in code from the
-numeric item id, never taken from the response. They appear in the kit's top-level
+Live, that gives recent, relevant results for companies people do write about — for PostHog, from
+2025, _"I interviewed for a job at posthog… They pay you for it, but it is a trial work day"_ — and
+an honest nothing for the rest. That includes a real company whose relevant threads were all older
+than five years: `No public discussion of GitLab's interview process from the last 5 years was
+found (30 search result(s), none relevant)`. Nothing is a better answer than something stale.
+
+At most five hits are kept, each with a title, a short excerpt, a date and a link built in code
+from the numeric item id, never taken from the response. They appear in the kit's top-level
 `public_discussion` for the user to read and judge. Only the company-fit prompt receives the
 excerpts, labelled as unverified comments from strangers that may guide what to prepare for but
 must never be stated as fact. The search runs alongside the company brief, is skipped when the
@@ -306,6 +317,20 @@ from anything presented as fact.
 | Hacker News, via its public search API at `hn.algolia.com` | public discussion of the company's interview process | one keyless API request per kit |
 
 Nothing else is fetched. Job boards and interview-review sites are not scraped.
+
+**Sources considered and not used.** Reddit, Quora and X hold more interview accounts than Hacker
+News does, so each was checked rather than assumed:
+
+| Site | What was found | Decision |
+|---|---|---|
+| Reddit | `robots.txt` is `User-agent: * / Disallow: /`; the public `search.json` endpoint answered HTTP 403 | Not scraped. Its official API is free for non-commercial use and would be the right way in, as an optional source enabled by its own credentials, the way the Groq key is optional. Not built: it needs an app registration, which the batch command must work without |
+| Quora | the search page answered HTTP 403; there is no public API | No legitimate route |
+| X | `robots.txt` disallows `/search?q=`; the page behind it is a login wall; the read API is paid | Ruled out by the brief's "everything is available on a free tier" |
+
+The crawler honours robots.txt on company sites. Working around it on these sites would contradict
+that, and the brief asks for site terms to be respected. `findPublicDiscussion` returns a result
+labelled with its source, so a second source can sit beside the first without the pipeline
+changing.
 
 ## Research and generation steps
 
@@ -541,8 +566,8 @@ What was fetched, skipped, dropped or corrected is in `research_log`.
 
 **Public discussion of the company turns up nothing at all.** This is the usual case, and it is a
 result rather than a problem: `public_discussion` is `{ "searched": true, "hits": [] }`, the
-research log says "No public discussion of <company>'s interview process was found", no warning is
-raised, and the company-fit questions are written from the company's own site alone. If the search
+research log says "No public discussion of <company>'s interview process from the last 5 years was
+found", counting any results that were dropped as too old, no warning is raised, and the company-fit questions are written from the company's own site alone. If the search
 could not be made — the company's name is unknown, or the search API is down — `searched` is
 `false` and the log says which.
 
