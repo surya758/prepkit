@@ -102,6 +102,23 @@ describe("generateKit — end to end against a company site", () => {
     expect(kit.questions.every((q) => scheduled.has(q.id))).toBe(true);
   });
 
+  it("includes flashcards whose requirement ids all exist", async () => {
+    const kit = await generateKit({ jd: JD, companyUrl: `${sites.origin}/acme/`, days: 3 }, options());
+    expect(kit.flashcards.map((f) => f.id)).toEqual(["f1", "f2", "f3", "f4"]);
+    expect(kit.flashcards.flatMap((f) => f.requirement_ids).sort()).toEqual(["r1", "r2", "r3"]);
+  });
+
+  it("ships without flashcards, and says why, when only that step fails", async () => {
+    const llm = scriptedModel({ flashcards: new PipelineError("LLM_INVALID_JSON", "no usable JSON after one re-ask") });
+    const kit = await generateKit({ jd: JD, companyUrl: `${sites.origin}/acme/`, days: 3 }, options({ llm }));
+
+    expect(validateKit(kit)).toMatchObject({ ok: true });
+    expect(kit.flashcards).toEqual([]);
+    expect(kit.questions.length).toBeGreaterThan(0);
+    // completeJson re-asked once before giving up, so the message is its own; the code is what matters.
+    expect(kit.warnings).toEqual([expect.objectContaining({ code: "LLM_INVALID_JSON", message: expect.stringContaining("flashcards:") })]);
+  });
+
   it("runs the second pass when the first draft misses a must-have, and reports two passes", async () => {
     const llm = scriptedModel({
       questions: (request) => {
