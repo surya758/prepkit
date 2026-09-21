@@ -1,4 +1,8 @@
+"use client";
+
 import { Ban, Check, CircleStop, LoaderCircle, X } from "lucide-react";
+import { AnimatePresence } from "motion/react";
+import * as m from "motion/react-m";
 import type { StepState, TimelineStep } from "@/lib/timeline";
 
 const LOOK: Record<StepState, { icon: typeof Check; word: string; className: string }> = {
@@ -16,13 +20,30 @@ export function GenerationTimeline({ steps }: { steps: TimelineStep[] }) {
 
   return (
     <ol className="flex flex-col">
-      {steps.map((step) => {
+      {/* initial={false}: rows already there when the page opens do not animate — a finished
+          kit's thirteen steps should not perform on every visit. Only a step that arrives
+          while you are watching slides in. */}
+      <AnimatePresence initial={false}>
+        {steps.map((step) => {
         const { icon: Icon, word, className } = LOOK[step.state];
         return (
-          <li key={step.key} className="flex gap-3 border-b py-3 last:border-b-0">
-            <span className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full ${className}`}>
+          <m.li
+            key={step.key}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="flex gap-3 border-b py-3 last:border-b-0"
+          >
+            {/* Keyed by state, so the moment a step finishes its mark is replaced and pops in. */}
+            <m.span
+              key={step.state}
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full ${className}`}
+            >
               <Icon className={`size-3.5 ${step.state === "running" ? "animate-spin motion-reduce:animate-none" : ""}`} aria-hidden="true" />
-            </span>
+            </m.span>
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <div className="flex items-baseline justify-between gap-3">
                 <span className={step.state === "running" ? "font-semibold" : ""}>
@@ -37,9 +58,10 @@ export function GenerationTimeline({ steps }: { steps: TimelineStep[] }) {
               </div>
               {step.detail && step.state !== "done" && <p className="text-sm text-muted-foreground">{step.detail}</p>}
             </div>
-          </li>
-        );
-      })}
+          </m.li>
+          );
+        })}
+      </AnimatePresence>
     </ol>
   );
 }

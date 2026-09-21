@@ -1,6 +1,7 @@
 "use client";
 
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { LazyMotion, MotionConfig } from "motion/react";
 import { ThemeProvider } from "next-themes";
 import { useState } from "react";
 import { ApiError, isUnauthenticated } from "@/lib/api";
@@ -26,11 +27,22 @@ export function createQueryClient(): QueryClient {
   return client;
 }
 
+const loadMotionFeatures = () => import("@/lib/motion-features").then((module) => module.default);
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(createQueryClient);
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        {/* reducedMotion="user": for anyone who has asked their system for less motion, movement
+            is dropped everywhere at once and only fades remain — no component has to remember.
+            strict: only the slim `m` components are allowed, so the full library cannot slip in. */}
+        <MotionConfig reducedMotion="user">
+          <LazyMotion features={loadMotionFeatures} strict>
+            {children}
+          </LazyMotion>
+        </MotionConfig>
+      </QueryClientProvider>
     </ThemeProvider>
   );
 }
