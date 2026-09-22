@@ -8,6 +8,8 @@ services:
     buildCommand: npm ci --omit=dev --workspace=@prepkit/api
     startCommand: npm run start -w @prepkit/api
     healthCheckPath: /api/health
+    # Deploy a push to main only once every GitHub Actions check on it has passed.
+    autoDeployTrigger: checksPass
     envVars:
       - key: NODE_ENV
         value: production

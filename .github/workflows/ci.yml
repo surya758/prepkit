@@ -3,8 +3,10 @@
 # tests use a scripted model and in-memory repositories — so the batch command itself is not run:
 # it would need a real key and would spend the shared free-tier quota on every push.
 #
-# Deploys are not gated on this: Render and Vercel deploy from a push to main on their own. This
-# is the check that says whether that push was sound.
+# Deploys wait for this. The API on Render deploys a commit on main only once these checks pass
+# (autoDeployTrigger: checksPass in render.yaml). The web app on Vercel is built for every push
+# as a preview by its Git integration, and promoted to production by the last job here, only
+# after the checks pass and only on main.
 name: CI
 
 on:
@@ -37,3 +39,27 @@ jobs:
 
       - name: Build the web app
         run: npm run build -w @prepkit/web
+
+  deploy-web:
+    # The web app's production deploy: only main, only after the checks above.
+    needs: check
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      # Pull the project's settings and production env, build with them, and deploy that build.
+      # `--prebuilt` deploys what was built here, so what CI tested is what goes live.
+      - run: npm i -g vercel@latest
+      - run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+      - run: vercel build --prod --token="$VERCEL_TOKEN"
+      - run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
