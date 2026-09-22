@@ -24,6 +24,20 @@ interface Ranked {
   weight: number;
 }
 
+/**
+ * Requirement id -> how much more its questions should weigh, 1 (as normal) to 2 (double).
+ * Where practice has shown a requirement to be weak, the questions that cover it rise in the
+ * ranking and so land on earlier, fuller days. Absent, the schedule is the plain one.
+ */
+export type Emphasis = ReadonlyMap<string, number>;
+export const MAX_EMPHASIS = 2;
+
+function emphasisOf(question: Question, emphasis: Emphasis | undefined): number {
+  if (!emphasis) return 1;
+  // A question covering several requirements takes the strongest need among them.
+  return question.requirement_ids.reduce((max, id) => Math.max(max, emphasis.get(id) ?? 1), 1);
+}
+
 function tierOf(question: Question, priorityById: Map<string, Requirement['priority']>): PriorityTier {
   const priorities = question.requirement_ids.map((id) => priorityById.get(id)).filter(Boolean);
   if (priorities.includes('must')) return 'must';
@@ -31,13 +45,13 @@ function tierOf(question: Question, priorityById: Map<string, Requirement['prior
   return priorities.length === 0 ? 'unlinked' : 'nice';
 }
 
-/** Highest weight first: priority x difficulty, must-haves winning ties, then original order. */
-export function rankQuestions(questions: Question[], requirements: Requirement[]): Ranked[] {
+/** Highest weight first: priority x difficulty (x emphasis), must-haves winning ties, then original order. */
+export function rankQuestions(questions: Question[], requirements: Requirement[], emphasis?: Emphasis): Ranked[] {
   const priorityById = new Map(requirements.map((r) => [r.id, r.priority]));
   return questions
     .map((question, index) => {
       const tier = tierOf(question, priorityById);
-      return { question, tier, weight: TIER_WEIGHT[tier] * question.difficulty, index };
+      return { question, tier, weight: TIER_WEIGHT[tier] * question.difficulty * emphasisOf(question, emphasis), index };
     })
     .sort((a, b) => b.weight - a.weight || TIER_WEIGHT[b.tier] - TIER_WEIGHT[a.tier] || a.index - b.index);
 }
@@ -103,13 +117,14 @@ export function buildSchedule(
   questions: Question[],
   requirements: Requirement[],
   daysAvailable: number,
+  emphasis?: Emphasis,
 ): Kit['schedule'] {
   if (!Number.isInteger(daysAvailable) || daysAvailable < 1) {
     throw new RangeError(`daysAvailable must be a positive integer, got ${daysAvailable}`);
   }
 
   const textById = new Map(requirements.map((r) => [r.id, r.text]));
-  const ranked = rankQuestions(questions, requirements);
+  const ranked = rankQuestions(questions, requirements, emphasis);
   const days: ScheduleDay[] = [];
 
   const push = (dayQuestions: Question[], focus: string, review: boolean) =>
