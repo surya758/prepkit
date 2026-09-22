@@ -107,4 +107,9 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Tailwind v4 stopped giving buttons the hand cursor; every clickable thing should show one. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
 }
