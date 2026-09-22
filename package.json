@@ -10,6 +10,7 @@
     "apps/*"
   ],
   "scripts": {
+    "dev": "concurrently --names api,web --prefix-colors cyan,magenta --kill-others \"npm run dev -w @prepkit/api\" \"npm run dev -w @prepkit/web\"",
     "evaluate": "tsx packages/core/src/cli/evaluate.ts",
     "fixtures": "tsx packages/core/test/fixtures/serve-company-sites.ts",
     "test": "npm test --workspaces --if-present",
@@ -20,6 +21,7 @@
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
     "@types/node": "^22.20.4",
+    "concurrently": "^10.0.5",
     "husky": "^9.1.7",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",

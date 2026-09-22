@@ -131,9 +131,12 @@ fails per kit with a message naming the variable. A variable left empty, as in a
 ### The web app
 
 ```bash
-npm run dev -w @prepkit/api     # the API, on :4000
-npm run dev -w @prepkit/web     # the web app, on http://localhost:3000
+npm run dev                     # both: the API on :4000 and the web app on http://localhost:3000
+npm run dev -w @prepkit/web     # or the web app alone, against an API already running
 ```
+
+`npm run dev` at the root runs the two dev servers in one terminal with `[api]` and `[web]`
+prefixes, and stops both on Ctrl-C.
 
 | Variable | Required | What it is for |
 |---|---|---|
