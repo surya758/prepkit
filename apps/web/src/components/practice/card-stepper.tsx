@@ -86,7 +86,7 @@ export function CardStepper({ session, cards, requirements, onReveal, onRate, on
             </m.div>
           ) : (
             <div className="mt-auto flex flex-wrap items-center gap-3 pt-2">
-              <Button size="lg" onClick={onReveal}>
+              <Button id="show-answer" size="lg" onClick={onReveal}>
                 Show answer <kbd className="ml-1 rounded bg-primary-foreground/20 px-1.5 font-mono text-xs">Space</kbd>
               </Button>
               <Button variant="ghost" onClick={onSkip}>

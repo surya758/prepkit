@@ -91,6 +91,7 @@ export default function PracticePage() {
         </div>
         {view.data && view.data.progress.practised > 0 && (
           <Button
+            id="start-over"
             variant="ghost"
             size="sm"
             className="text-muted-foreground"
@@ -104,6 +105,8 @@ export default function PracticePage() {
       <ConfirmDialog
         open={resetting}
         onOpenChange={setResetting}
+        // A reset removes Start over (nothing left to undo), so focus goes to the card instead.
+        focusOnClose="#start-over, #show-answer"
         title="Start over?"
         description="Every rating you have given on this kit's cards is forgotten, and the next sitting begins from the first card again. The cards themselves are not touched."
         confirmLabel="Forget my ratings"
