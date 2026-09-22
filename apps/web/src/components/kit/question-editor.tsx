@@ -11,8 +11,9 @@ import type { EditRequest } from "@/lib/builder";
 const AUTOSAVE_MS = 500;
 const DIFFICULTY = ["Easy", "Medium", "Hard"];
 
-type Draft = Pick<Question, "prompt" | "answer_outline" | "difficulty" | "requirement_ids">;
+export type Draft = Pick<Question, "prompt" | "answer_outline" | "difficulty" | "requirement_ids">;
 const draftOf = (q: Question): Draft => ({ prompt: q.prompt, answer_outline: q.answer_outline, difficulty: q.difficulty, requirement_ids: q.requirement_ids });
+export const BLANK: Draft = { prompt: "", answer_outline: "", difficulty: 2, requirement_ids: [] };
 const same = (a: Draft, b: Draft) => JSON.stringify(a) === JSON.stringify(b);
 
 /** Only the fields that differ from the saved question. Nothing to send when the user changed nothing. */
@@ -34,19 +35,22 @@ export function editQuestionOptimistically(id: string, patch: Partial<Draft>): N
 }
 
 interface Props {
-  question: Question;
+  /** An existing question, or a blank draft for a new one; a new one is created once, on Done. */
+  question: Question | { id: string; isNew: true };
   requirements: Requirement[];
   saving: boolean;
   onSave: (patch: Partial<Draft>) => void;
+  onCreate?: (draft: Draft) => void;
   onClose: () => void;
 }
 
-export function QuestionEditor({ question, requirements, saving, onSave, onClose }: Props) {
+export function QuestionEditor({ question, requirements, saving, onSave, onCreate, onClose }: Props) {
+  const isNew = "isNew" in question;
   // The editor owns the draft while open. What the server holds is only read again on close,
   // so a refetch cannot replace text mid-sentence.
-  const [draft, setDraft] = useState<Draft>(() => draftOf(question));
+  const [draft, setDraft] = useState<Draft>(() => (isNew ? BLANK : draftOf(question)));
   // What was last sent. State, not a ref: the status line renders from it.
-  const [saved, setSaved] = useState<Draft>(() => draftOf(question));
+  const [saved, setSaved] = useState<Draft>(() => (isNew ? BLANK : draftOf(question)));
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const empty = draft.prompt.trim() === "" || draft.answer_outline.trim() === "";
@@ -55,20 +59,26 @@ export function QuestionEditor({ question, requirements, saving, onSave, onClose
     promptRef.current?.focus();
   }, []);
 
-  // Autosave: after a pause in typing, send whatever differs from the last save.
+  // Autosave: after a pause in typing, send whatever differs from the last save. A new question
+  // is not saved piecemeal; it is created whole, on Done.
   useEffect(() => {
     clearTimeout(timer.current);
-    if (empty || same(draft, saved)) return;
+    if (isNew || empty || same(draft, saved)) return;
     timer.current = setTimeout(() => {
       onSave(patchOf(saved, draft));
       setSaved(draft);
     }, AUTOSAVE_MS);
     return () => clearTimeout(timer.current);
-  }, [draft, empty, saved, onSave]);
+  }, [draft, empty, isNew, saved, onSave]);
 
   function done() {
     clearTimeout(timer.current);
-    if (!empty && !same(draft, saved)) onSave(patchOf(saved, draft));
+    if (isNew) {
+      if (empty) return; // nothing worth creating; the status line says what is missing
+      onCreate?.(draft);
+    } else if (!empty && !same(draft, saved)) {
+      onSave(patchOf(saved, draft));
+    }
     onClose();
   }
 
@@ -79,7 +89,12 @@ export function QuestionEditor({ question, requirements, saving, onSave, onClose
     <div
       className="flex flex-col gap-4 rounded-xl border border-ring/60 bg-card p-4"
       onKeyDown={(event) => {
-        if (event.key === "Escape") done();
+        if (event.key === "Escape") return isNew ? onClose() : done();
+        // Enter in the one-line question field finishes; the outline keeps Enter for new lines.
+        if (event.key === "Enter" && !event.shiftKey && event.target === promptRef.current) {
+          event.preventDefault();
+          done();
+        }
       }}
     >
       <div className="flex flex-col gap-1.5">
@@ -131,11 +146,18 @@ export function QuestionEditor({ question, requirements, saving, onSave, onClose
       </div>
       <div className="flex items-center justify-between gap-3">
         <p role="status" className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          {empty ? "A question and an outline are both needed." : saving ? <><LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Saving</> : same(draft, saved) ? <><Check className="size-3.5" aria-hidden="true" /> Saved</> : "Saves as you type"}
+          {empty ? "A question and an outline are both needed." : isNew ? "Added when you press Done" : saving ? <><LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Saving</> : same(draft, saved) ? <><Check className="size-3.5" aria-hidden="true" /> Saved</> : "Saves as you type"}
         </p>
-        <Button type="button" size="sm" onClick={done}>
-          Done
-        </Button>
+        <div className="flex gap-2">
+          {isNew && (
+            <Button type="button" size="sm" variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+          )}
+          <Button type="button" size="sm" onClick={done} disabled={isNew && empty}>
+            {isNew ? "Add question" : "Done"}
+          </Button>
+        </div>
       </div>
     </div>
   );

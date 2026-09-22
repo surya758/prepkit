@@ -1,5 +1,5 @@
 import type { ItemMeta, Question, Requirement } from "@prepkit/core";
-import { Pencil } from "lucide-react";
+import { Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ItemBadges } from "./item-badges";
 
@@ -21,9 +21,11 @@ interface Props {
   meta: ItemMeta;
   requirements: Map<string, Requirement>;
   onEdit?: () => void;
+  onPin?: (pinned: boolean) => void;
+  onDelete?: () => void;
 }
 
-export function QuestionCard({ question, meta, requirements, onEdit }: Props) {
+export function QuestionCard({ question, meta, requirements, onEdit, onPin, onDelete }: Props) {
   return (
     <article aria-label={question.prompt} className="flex flex-col gap-3 rounded-xl border bg-card p-4">
       <p className="font-medium leading-snug">{question.prompt}</p>
@@ -37,10 +39,20 @@ export function QuestionCard({ question, meta, requirements, onEdit }: Props) {
         ))}
         <Difficulty level={question.difficulty} />
         <span className="ml-auto font-mono text-xs text-muted-foreground">{question.id}</span>
+        {onPin && (
+          <Button variant="ghost" size="icon-sm" onClick={() => onPin(!meta.pinned)} aria-pressed={meta.pinned} aria-label={meta.pinned ? `Unpin ${question.id}` : `Pin ${question.id}`} title={meta.pinned ? "Unpin" : "Pin, so a regeneration keeps it"}>
+            {meta.pinned ? <PinOff aria-hidden="true" /> : <Pin aria-hidden="true" />}
+          </Button>
+        )}
         {onEdit && (
           <Button variant="ghost" size="sm" onClick={onEdit} aria-label={`Edit ${question.id}`}>
             <Pencil aria-hidden="true" />
             Edit
+          </Button>
+        )}
+        {onDelete && (
+          <Button variant="ghost" size="icon-sm" onClick={onDelete} aria-label={`Delete ${question.id}`} className="text-muted-foreground hover:text-destructive">
+            <Trash2 aria-hidden="true" />
           </Button>
         )}
       </div>
