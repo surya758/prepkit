@@ -1,10 +1,10 @@
 "use client";
 
-import type { Kit, KitMeta } from "@prepkit/core";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { api } from "./api";
-import type { KitDetail } from "./kits";
+import { api } from "@/lib/api";
+import type { KitState } from "@/lib/kit-edits";
+import type { KitDetail } from "@/lib/kits";
 
 // Every builder change goes through here. The shape is the same for all of them:
 //
@@ -22,8 +22,8 @@ export interface EditRequest {
   /** Relative to /api/kits/:id */
   path: string;
   body?: unknown;
-  /** What the kit looks like once this change has applied, for the moment before the server answers. */
-  optimistic?: (current: { kit: Kit; meta: KitMeta }) => { kit: Kit; meta: KitMeta };
+  /** What the kit looks like once this change has applied, for the moment before the server answers. One of lib/kit-edits. */
+  optimistic?: (current: KitState) => KitState;
   /** Shown in the toast if the save fails. */
   failed: string;
 }

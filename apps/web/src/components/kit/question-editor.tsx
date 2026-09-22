@@ -6,12 +6,12 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { EditRequest } from "@/lib/builder";
+import type { QuestionDraft } from "@/lib/kit-edits";
 
 const AUTOSAVE_MS = 500;
 const DIFFICULTY = ["Easy", "Medium", "Hard"];
 
-export type Draft = Pick<Question, "prompt" | "answer_outline" | "difficulty" | "requirement_ids">;
+type Draft = QuestionDraft;
 const draftOf = (q: Question): Draft => ({ prompt: q.prompt, answer_outline: q.answer_outline, difficulty: q.difficulty, requirement_ids: q.requirement_ids });
 export const BLANK: Draft = { prompt: "", answer_outline: "", difficulty: 2, requirement_ids: [] };
 const same = (a: Draft, b: Draft) => JSON.stringify(a) === JSON.stringify(b);
@@ -24,14 +24,6 @@ function patchOf(saved: Draft, draft: Draft): Partial<Draft> {
   if (draft.difficulty !== saved.difficulty) patch.difficulty = draft.difficulty;
   if (draft.requirement_ids.join() !== saved.requirement_ids.join()) patch.requirement_ids = draft.requirement_ids;
   return patch;
-}
-
-/** The change to the cached kit, so the card reflects the edit before the server answers. */
-export function editQuestionOptimistically(id: string, patch: Partial<Draft>): NonNullable<EditRequest["optimistic"]> {
-  return ({ kit, meta }) => ({
-    kit: { ...kit, questions: kit.questions.map((q) => (q.id === id ? { ...q, ...patch } : q)) },
-    meta: { ...meta, items: { ...meta.items, [id]: { ...(meta.items[id] ?? { origin: "generated", pinned: false }), edited: true } } },
-  });
 }
 
 interface Props {
