@@ -256,7 +256,29 @@ repositories  MongoDB only: reads and writes, no decisions      +   @prepkit/cor
 - **Configuration is read in one file**, validated at startup, and fails by variable name.
   Whether private addresses may be fetched is _derived_ from `NODE_ENV`, not a flag anyone can set.
 
-**`apps/web`** is a Next.js app that renders in the browser and holds no data of its own.
+**`apps/web`** is a Next.js app that renders in the browser and holds no data of its own. It has
+three layers, with one test for which layer a piece of code belongs in — *can it be unit-tested
+without rendering?* — and if it can, it is not in a component:
+
+```
+src/lib/          what things mean: pure functions on the kit. No React, no fetch.
+                  What does an edit do to the kit? What badge does an item get? Which
+                  timeline row does a progress event become? Tested and mutation-checked.
+src/features/     how things are sent: React Query hooks, no JSX. Which request an edit
+                  makes, what the page shows before the server answers, what to say if it fails.
+src/components/   how things look. Render props, call hooks, and own only UI state —
+                  which editor or dialog is open.
+```
+
+The split earns its keep at the builder. Every edit is shown at once and sent after
+(optimistic), so the browser has its own copy of what each edit does to the kit — the same
+id numbering, the same meta, the same removals as the server's rule in `packages/core`. Two
+copies of a rule can drift, and when these two drift the page flickers: it shows one thing,
+then the server's answer. So the browser's rules are pure functions in
+[`lib/kit-edits.ts`](apps/web/src/lib/kit-edits.ts), and a test applies each of them, and a
+sequence of them, to the same kit as core's real rule and requires the same result. When
+they were tangled into the components that rule had no test, and the flashcards tab was
+about to need a second copy of all of it.
 
 - **The browser only ever talks to the web app's own address.** `next.config.ts` forwards `/api/*`
   to the API server-side. The session cookie is therefore first-party — `SameSite=Lax` is enough,
@@ -287,6 +309,11 @@ repositories  MongoDB only: reads and writes, no decisions      +   @prepkit/cor
   minute. Every page asks for `/api/health` as it opens — which is also what starts the wake-up —
   stays quiet for 1.5 seconds so a healthy server never flashes a banner, then says what is
   happening and clears itself when the server answers.
+- **The web app shares core's types and never its code.** `Kit` and `KitMeta` are imported as
+  types from `@prepkit/core`, so the browser and the pipeline cannot disagree about what a kit
+  is; a lint rule makes any non-type import from core an error in `src/`, since the pipeline
+  crawls, resolves DNS and calls models. Tests are exempt: they run in Node and call core's real
+  rules on purpose.
 - **shadcn/ui** copies component source into the repo rather than shipping a package, so every
   line is readable and changeable here; the components wrap Radix primitives, which is where
   keyboard and screen-reader behaviour comes from. Components only name colour *roles*
@@ -1019,7 +1046,8 @@ format); `apps/api/test/support/http.ts` explains the fix.
 The web app (`apps/web`) tests its logic without a browser: where a redirect after login may go
 (an absolute URL, a protocol-relative one, the backslash form and a script URL are each refused),
 which failures are retried and how an ended session is noticed, and what the API client makes of
-every kind of reply. Each of the three files was mutation-checked, which found one real gap: the
+every kind of reply, and — for the builder — that the browser's optimistic edit rules give the
+same kit as core's real ones. Each file was mutation-checked, which found one real gap: the
 envelope check was only tested against JSON with *no* `error` key, so loosening it survived until a
 case for `{ "error": "Internal Server Error" }` — what many servers send — was added.
 
