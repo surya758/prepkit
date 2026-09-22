@@ -4,6 +4,7 @@ import type { Kit, KitMeta, Question } from "@prepkit/core";
 import { LoaderCircle, Plus, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { focusAfterRender } from "@/components/focus-after-render";
 import { Button } from "@/components/ui/button";
 import { useQuestionEdits } from "@/features/questions";
 import { useRegenerate } from "@/features/regenerate";
@@ -52,7 +53,13 @@ export function QuestionsSection({
         pending={edits.isPending && deleting !== null}
         onConfirm={() =>
           deleting &&
-          edits.remove(deleting.id, { onSettled: () => setDeleting(null) })
+          edits.remove(deleting.id, {
+            onSettled: () => {
+              // The deleted card's controls are gone; the section's own button is the nearest one left.
+              focusAfterRender(`#add-question-${deleting.category}`);
+              setDeleting(null);
+            },
+          })
         }
       />
       {(Object.keys(CATEGORY_LABELS) as Question["category"][]).map(
@@ -72,10 +79,11 @@ export function QuestionsSection({
               aria-labelledby={`questions-${category}`}
               className="flex flex-col gap-3"
             >
-              <div className="flex items-center justify-between gap-3">
+              {/* Wraps on a phone: the heading stays whole and the buttons drop below it. */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2
                   id={`questions-${category}`}
-                  className="font-display text-2xl"
+                  className="font-display text-2xl whitespace-nowrap"
                 >
                   {CATEGORY_LABELS[category]}{" "}
                   <span className="font-sans text-sm text-muted-foreground">
@@ -84,6 +92,7 @@ export function QuestionsSection({
                 </h2>
                 <div className="flex gap-2">
                   <Button
+                    id={`add-question-${category}`}
                     variant="outline"
                     size="sm"
                     onClick={() => setAdding(category)}
@@ -162,7 +171,10 @@ export function QuestionsSection({
                           requirements={kit.role.requirements}
                           saving={edits.isPending}
                           onSave={(patch) => edits.edit(question.id, patch)}
-                          onClose={() => setEditing(null)}
+                          onClose={() => {
+                            setEditing(null);
+                            focusAfterRender(`[aria-label="Edit ${question.id}"]`);
+                          }}
                         />
                       ) : (
                         <QuestionCard
@@ -194,7 +206,10 @@ export function QuestionsSection({
                           saving={false}
                           onSave={() => {}}
                           onCreate={(draft) => edits.add(category, draft)}
-                          onClose={() => setAdding(null)}
+                          onClose={() => {
+                            setAdding(null);
+                            focusAfterRender(`#add-question-${category}`);
+                          }}
                         />
                       </li>
                     )}
