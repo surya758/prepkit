@@ -6,6 +6,9 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
+    // Only what is bundled for the browser. Tests run in Node and may call core's real rules,
+    // which is how the browser's copies of them are checked against the originals.
+    files: ["src/**"],
     // @prepkit/core is the pipeline: it crawls, resolves DNS and calls models, none of which
     // can run in a browser. The web app shares its TYPES, so the two never disagree about what
     // a kit is, and type imports are erased before bundling. Importing its code is an error.
