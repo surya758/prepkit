@@ -1,7 +1,7 @@
 import * as core from "@prepkit/core";
 import type { Kit, KitMeta } from "@prepkit/core";
 import { describe, expect, it } from "vitest";
-import { addQuestion, deleteQuestion, editQuestion, setPinned } from "@/lib/kit-edits";
+import { addQuestion, deleteQuestion, editQuestion, fullOrder, moveQuestion, reorderQuestions, setPinned } from "@/lib/kit-edits";
 import type { KitState } from "@/lib/kit-edits";
 
 // A small valid kit, the shape the pipeline produces, with two questions in different categories.
@@ -52,6 +52,27 @@ describe("the browser's optimistic rules agree with core's real ones", () => {
     expect(comparable(setPinned(state(), "q2", true))).toEqual(comparable(core.setPinned(state(), "q2", true)));
     const pinned = setPinned(state(), "q2", true);
     expect(comparable(setPinned(pinned, "q2", false))).toEqual(comparable(core.setPinned(pinned, "q2", false)));
+  });
+
+  it("reordering: the browser reorders one category, and sends the server the whole list it computed", () => {
+    const three = addQuestion(state(), "technical", draft); // q1 tech, q2 behavioural, q3 tech
+    const ours = reorderQuestions(three, ["q3", "q1"]);
+    const sent = fullOrder(three, ["q3", "q1"]);
+    expect(sent).toEqual(["q3", "q2", "q1"]);
+    expect(comparable(ours)).toEqual(comparable(core.reorderQuestions(three, sent)));
+  });
+
+  it("reordering one category leaves the others where they are", () => {
+    const three = addQuestion(state(), "technical", draft); // q1 tech, q2 behavioural, q3 tech
+    // Only the technical ids are given, in their new order: q2 must stay in the middle.
+    expect(reorderQuestions(three, ["q3", "q1"]).kit.questions.map((q) => q.id)).toEqual(["q3", "q2", "q1"]);
+  });
+
+  it("moving to another category is an edit and nothing more: same place in the list, same meta", () => {
+    const ours = moveQuestion(state(), "q1", "behavioural");
+    const theirs = core.editQuestion(state(), "q1", { category: "behavioural" });
+    expect(comparable(ours)).toEqual(comparable(theirs));
+    expect(ours.kit.questions.map((q) => `${q.id}:${q.category}`)).toEqual(["q1:behavioural", "q2:behavioural"]);
   });
 
   it("a sequence: add, edit the new one, delete the old one, add again", () => {
