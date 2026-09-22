@@ -72,4 +72,9 @@ jobs:
       - run: npm i -g vercel@latest
       - run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
       - run: vercel build --prod --token="$VERCEL_TOKEN"
-      - run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+      - name: Deploy, and point the public address at it
+        run: |
+          set -o pipefail
+          url=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN" | tail -1)
+          echo "deployed $url"
+          vercel alias set "$url" prepkit-zeta.vercel.app --token="$VERCEL_TOKEN"
