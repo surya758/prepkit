@@ -64,9 +64,34 @@ export function useQuestionEdits(kitId: string) {
     [mutate],
   );
 
+  const reorder = useCallback(
+    (orderedIds: string[]) =>
+      mutate({
+        method: "PUT",
+        path: "/questions/order",
+        // The server takes every question's id; the category's new order is folded into the whole.
+        body: (s) => ({ ids: edits.fullOrder(s, orderedIds) }),
+        optimistic: (s) => edits.reorderQuestions(s, orderedIds),
+        failed: "The new order was not saved",
+      }),
+    [mutate],
+  );
+
+  const move = useCallback(
+    (id: string, category: Question["category"]) =>
+      mutate({
+        method: "PATCH",
+        path: `/questions/${id}`,
+        body: { category },
+        optimistic: (s) => edits.moveQuestion(s, id, category),
+        failed: "This question could not be moved",
+      }),
+    [mutate],
+  );
+
   return useMemo(
-    () => ({ edit, add, remove, pin, isPending }),
-    [edit, add, remove, pin, isPending],
+    () => ({ edit, add, remove, pin, reorder, move, isPending }),
+    [edit, add, remove, pin, reorder, move, isPending],
   );
 }
 

@@ -6,6 +6,7 @@ export interface KitState {
 }
 
 export type QuestionDraft = Omit<Question, "id" | "category">;
+type QuestionPatch = Partial<QuestionDraft> & { category?: Question["category"] };
 
 const GENERATED: ItemMeta = {
   origin: "generated",
@@ -26,7 +27,7 @@ const withItem = (
 export function editQuestion(
   { kit, meta }: KitState,
   id: string,
-  patch: Partial<QuestionDraft>,
+  patch: QuestionPatch,
 ): KitState {
   return {
     kit: {
@@ -71,4 +72,30 @@ export function setPinned(
   pinned: boolean,
 ): KitState {
   return { kit, meta: withItem(meta, id, { pinned }) };
+}
+
+/**
+ * Reorders the questions of one category. Order is presentation, not content, so nothing is
+ * marked edited. Questions in other categories keep their places, so the list can be
+ * reordered one category at a time.
+ */
+export function reorderQuestions({ kit, meta }: KitState, orderedIds: string[]): KitState {
+  const byId = new Map(kit.questions.map((q) => [q.id, q]));
+  const moving = new Set(orderedIds);
+  let next = 0;
+  // Walk the list; each slot that held one of the moving questions takes the next id in the new order.
+  return { kit: { ...kit, questions: kit.questions.map((q) => (moving.has(q.id) ? byId.get(orderedIds[next++]!)! : q)) }, meta };
+}
+
+/** What the server is sent: it takes the order of every question in the kit, exactly once. */
+export const fullOrder = (state: KitState, orderedIds: string[]): string[] => reorderQuestions(state, orderedIds).kit.questions.map((q) => q.id);
+
+/**
+ * Changing a question's category is an edit, nothing more: the question keeps its place in the
+ * kit's list, exactly as core's editQuestion leaves it, and so appears in its new category at
+ * whatever position that place gives it. Moving it to the end as well would be a second change
+ * the server does not make, and the page would show one order and then the other.
+ */
+export function moveQuestion(state: KitState, id: string, category: Question["category"]): KitState {
+  return editQuestion(state, id, { category });
 }
