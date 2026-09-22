@@ -4,6 +4,7 @@ import type { Flashcard, Kit, KitMeta } from "@prepkit/core";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { focusAfterRender } from "@/components/focus-after-render";
 import { Button } from "@/components/ui/button";
 import { useFlashcardEdits } from "@/features/flashcards";
 import { metaFor } from "@/lib/item-meta";
@@ -28,14 +29,24 @@ export function FlashcardsSection({ kitId, kit, meta }: { kitId: string; kit: Ki
         description={deleting ? `“${deleting.front}” will be removed from the kit, along with any practice progress on it. This cannot be undone.` : ""}
         confirmLabel="Delete flashcard"
         pending={edits.isPending && deleting !== null}
-        onConfirm={() => deleting && edits.remove(deleting.id, { onSettled: () => setDeleting(null) })}
+        onConfirm={() =>
+          deleting &&
+          edits.remove(deleting.id, {
+            onSettled: () => {
+              // The deleted card's controls are gone; the section's own button is the nearest one left.
+              focusAfterRender("#add-flashcard");
+              setDeleting(null);
+            },
+          })
+        }
       />
 
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="font-display text-2xl">
+      {/* Wraps on a phone: the heading stays whole and the button drops below it. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-display text-2xl whitespace-nowrap">
           Flashcards <span className="font-sans text-sm text-muted-foreground">{kit.flashcards.length}</span>
         </h2>
-        <Button variant="outline" size="sm" onClick={() => setAdding(true)} disabled={adding}>
+        <Button id="add-flashcard" variant="outline" size="sm" onClick={() => setAdding(true)} disabled={adding}>
           <Plus aria-hidden="true" />
           Add flashcard
         </Button>
@@ -49,14 +60,14 @@ export function FlashcardsSection({ kitId, kit, meta }: { kitId: string; kit: Ki
           <SortableList items={kit.flashcards} describe={(f) => `the card “${f.front.slice(0, 60)}”`} onReorder={edits.reorder}>
             {(card, handle) =>
               editing === card.id ? (
-                <FlashcardEditor card={card} requirements={kit.role.requirements} saving={edits.isPending} onSave={(patch) => edits.edit(card.id, patch)} onClose={() => setEditing(null)} />
+                <FlashcardEditor card={card} requirements={kit.role.requirements} saving={edits.isPending} onSave={(patch) => edits.edit(card.id, patch)} onClose={() => { setEditing(null); focusAfterRender(`[aria-label="Edit ${card.id}"]`); }} />
               ) : (
                 <FlashcardCard card={card} meta={metaFor(meta, card.id)} requirements={requirements} handle={handle} onEdit={() => setEditing(card.id)} onPin={(pinned) => edits.pin(card.id, pinned)} onDelete={() => setDeleting(card)} />
               )
             }
           </SortableList>
           {adding && (
-            <FlashcardEditor card={{ id: "new-flashcard", isNew: true }} requirements={kit.role.requirements} saving={false} onSave={() => {}} onCreate={(draft) => edits.add(draft)} onClose={() => setAdding(false)} />
+            <FlashcardEditor card={{ id: "new-flashcard", isNew: true }} requirements={kit.role.requirements} saving={false} onSave={() => {}} onCreate={(draft) => edits.add(draft)} onClose={() => { setAdding(false); focusAfterRender("#add-flashcard"); }} />
           )}
         </>
       )}

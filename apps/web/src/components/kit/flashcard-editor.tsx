@@ -102,7 +102,7 @@ export function FlashcardEditor({ card, requirements, saving, onSave, onCreate, 
       </fieldset>
       <div className="flex items-center justify-between gap-3">
         <p role="status" className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          {empty ? "A front and a back are both needed." : isNew ? "Added when you press Done" : saving ? <><LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Saving</> : same(draft, saved) ? <><Check className="size-3.5" aria-hidden="true" /> Saved</> : "Saves as you type"}
+          {empty ? "A front and a back are both needed." : isNew ? "Added when you press Add flashcard" : saving ? <><LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Saving</> : same(draft, saved) ? <><Check className="size-3.5" aria-hidden="true" /> Saved</> : "Saves as you type"}
         </p>
         <div className="flex gap-2">
           {isNew && (
