@@ -3,6 +3,7 @@
 import type { Kit, KitMeta } from "@prepkit/core";
 import { CalendarClock, Pencil } from "lucide-react";
 import { useState } from "react";
+import { focusAfterRender } from "@/components/focus-after-render";
 import { Button } from "@/components/ui/button";
 import { usePracticeView } from "@/features/practice";
 import { useRegenerate } from "@/features/regenerate";
@@ -37,7 +38,11 @@ export function ScheduleSection({
       <ReplanDialog
         key={`${kit.schedule.days_available}-${practice.data?.progress.practised ?? 0}`}
         open={replanning}
-        onOpenChange={setReplanning}
+        // The dialog is opened by state, not by a Radix trigger, so focus is put back by hand.
+        onOpenChange={(open) => {
+          setReplanning(open);
+          if (!open) focusAfterRender("#replan");
+        }}
         currentDays={kit.schedule.days_available}
         arrangedByHand={arrangedByHand}
         pending={running}
@@ -49,6 +54,7 @@ export function ScheduleSection({
               onSuccess: (response) => {
                 setReplanning(false);
                 setEmphasised(adaptive ? (response.emphasised ?? []) : null);
+                focusAfterRender("#replan");
               },
             },
           )
@@ -64,6 +70,7 @@ export function ScheduleSection({
           </span>
         </h2>
         <Button
+          id="replan"
           variant="secondary"
           size="sm"
           onClick={() => setReplanning(true)}
@@ -113,7 +120,10 @@ export function ScheduleSection({
                 questions={kit.questions}
                 saving={edits.isPending}
                 onSave={(patch) => edits.editDay(day.day, patch)}
-                onClose={() => setEditing(null)}
+                onClose={() => {
+                  setEditing(null);
+                  focusAfterRender(`[aria-label="Edit day ${day.day}"]`);
+                }}
               />
             ) : (
               <article
