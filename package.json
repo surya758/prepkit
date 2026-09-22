@@ -14,7 +14,7 @@
     "fixtures": "tsx packages/core/test/fixtures/serve-company-sites.ts",
     "test": "npm test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "prepare": "husky"
+    "prepare": "husky || true"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",
