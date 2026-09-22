@@ -3,6 +3,7 @@
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LazyMotion, MotionConfig } from "motion/react";
 import { ThemeProvider } from "next-themes";
+import { Toaster } from "@/components/ui/sonner";
 import { useState } from "react";
 import { ApiError, isUnauthenticated } from "@/lib/api";
 
@@ -40,6 +41,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <MotionConfig reducedMotion="user">
           <LazyMotion features={loadMotionFeatures} strict>
             {children}
+            <Toaster position="bottom-center" />
           </LazyMotion>
         </MotionConfig>
       </QueryClientProvider>
