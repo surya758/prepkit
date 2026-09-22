@@ -48,10 +48,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Trigger the Render deploy of this commit
+      - name: Trigger the Render deploy
+        # The hook deploys the latest commit on main, which is this one: the job runs only there.
+        # `set -o pipefail`, or curl's failure would be hidden behind sed's success.
         run: |
-          curl --fail --silent --show-error \
-            "${{ secrets.RENDER_DEPLOY_HOOK_URL }}&ref=${{ github.sha }}" \
+          set -o pipefail
+          curl --fail --silent --show-error "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" \
             | sed -E 's/"id":"[^"]+"/"id":"<deploy id>"/'
 
   deploy-web:
