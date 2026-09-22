@@ -13,9 +13,21 @@ import type { KitDetail } from "@/lib/kits";
 // takes the answer when it lands. Everything else stays editable meanwhile; an edit made while
 // the model is thinking is merged on the server against the kit as it is by then.
 
-export type RegenerateTarget = { section: "questions"; category: Question["category"] } | { section: "brief" } | { section: "schedule"; days?: number };
+export type RegenerateTarget =
+  | { section: "questions"; category: Question["category"] }
+  | { section: "brief" }
+  | { section: "schedule"; days?: number; adaptive?: boolean };
 
-const keyOf = (target: RegenerateTarget) => (target.section === "questions" ? `questions:${target.category}` : target.section);
+/** What the server answers: the kit, and for a schedule re-plan the requirements it moved earlier. */
+interface RegenerateResponse {
+  kit: KitDetail;
+  emphasised?: string[];
+}
+
+const keyOf = (target: RegenerateTarget) =>
+  target.section === "questions"
+    ? `questions:${target.category}`
+    : target.section;
 
 export function useRegenerate(kitId: string) {
   const queryClient = useQueryClient();
@@ -25,7 +37,11 @@ export function useRegenerate(kitId: string) {
   const [refused, setRefused] = useState<Record<string, string>>({});
 
   const mutation = useMutation({
-    mutationFn: (target: RegenerateTarget) => api<{ kit: KitDetail }>(`/kits/${kitId}/regenerate`, { method: "POST", body: target }),
+    mutationFn: (target: RegenerateTarget) =>
+      api<RegenerateResponse>(`/kits/${kitId}/regenerate`, {
+        method: "POST",
+        body: target,
+      }),
     onMutate: (target) => {
       setRunning((s) => new Set(s).add(keyOf(target)));
       setRefused((r) => {
@@ -34,10 +50,15 @@ export function useRegenerate(kitId: string) {
         return next;
       });
     },
-    onSuccess: ({ kit }) => queryClient.setQueryData<KitDetail>(["kit", kitId], kit),
+    onSuccess: ({ kit }) =>
+      queryClient.setQueryData<KitDetail>(["kit", kitId], kit),
     onError: (error, target) => {
-      if (error instanceof ApiError && error.status === 409) setRefused((r) => ({ ...r, [keyOf(target)]: error.message }));
-      else toast.error("Regeneration did not happen", { description: error.message });
+      if (error instanceof ApiError && error.status === 409)
+        setRefused((r) => ({ ...r, [keyOf(target)]: error.message }));
+      else
+        toast.error("Regeneration did not happen", {
+          description: error.message,
+        });
     },
     onSettled: (_data, _error, target) =>
       setRunning((s) => {
@@ -47,9 +68,23 @@ export function useRegenerate(kitId: string) {
       }),
   });
 
-  const regenerate = useCallback((target: RegenerateTarget, { onSuccess }: { onSuccess?: () => void } = {}) => mutation.mutate(target, { onSuccess }), [mutation]);
-  const isRunning = useCallback((target: RegenerateTarget) => running.has(keyOf(target)), [running]);
-  const refusal = useCallback((target: RegenerateTarget) => refused[keyOf(target)] ?? null, [refused]);
+  const regenerate = useCallback(
+    (
+      target: RegenerateTarget,
+      {
+        onSuccess,
+      }: { onSuccess?: (response: RegenerateResponse) => void } = {},
+    ) => mutation.mutate(target, { onSuccess }),
+    [mutation],
+  );
+  const isRunning = useCallback(
+    (target: RegenerateTarget) => running.has(keyOf(target)),
+    [running],
+  );
+  const refusal = useCallback(
+    (target: RegenerateTarget) => refused[keyOf(target)] ?? null,
+    [refused],
+  );
 
   return { regenerate, isRunning, refusal };
 }
