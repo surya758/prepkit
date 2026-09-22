@@ -164,6 +164,7 @@ describe("loadConfig", () => {
       webOrigin: "http://localhost:3000",
       isProduction: false,
       allowPrivateHosts: true,
+      publicUrl: null,
     });
   });
 
