@@ -9,6 +9,8 @@ export type QuestionDraft = Omit<Question, "id" | "category">;
 type QuestionPatch = Partial<QuestionDraft> & { category?: Question["category"] };
 export type FlashcardDraft = Omit<Flashcard, "id">;
 export type DayPatch = Partial<Pick<ScheduleDay, "focus" | "minutes" | "question_ids">>;
+/** The two brief fields a user can rewrite; sources follow generated text and are not edited. */
+export type BriefField = "summary" | "what_they_do";
 
 const GENERATED: ItemMeta = {
   origin: "generated",
@@ -133,6 +135,14 @@ export function reorderFlashcards({ kit, meta }: KitState, orderedIds: string[])
 }
 
 // --- the schedule ---------------------------------------------------------------------------
+
+/** A brief field rewritten by hand. Its meta is keyed "brief.<field>", so a regeneration keeps it. */
+export function editBrief({ kit, meta }: KitState, field: BriefField, value: string): KitState {
+  return {
+    kit: { ...kit, company_brief: { ...kit.company_brief, [field]: value.trim() } },
+    meta: withItem(meta, `brief.${field}`, { edited: true }),
+  };
+}
 
 /** A day arranged by hand. From then on the schedule is only patched by other edits, never rebuilt. */
 export function editScheduleDay({ kit, meta }: KitState, dayNumber: number, patch: DayPatch): KitState {

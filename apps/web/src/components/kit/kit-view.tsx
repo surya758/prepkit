@@ -97,7 +97,7 @@ export function KitView({
           ))}
         </TabsList>
         <TabsContent value="brief" className="pt-4">
-          <BriefSection kit={kit} />
+          <BriefSection kitId={kitId} kit={kit} meta={meta} />
         </TabsContent>
         <TabsContent value="role" className="pt-4">
           <RoleSection kit={kit} />
