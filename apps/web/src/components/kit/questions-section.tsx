@@ -1,6 +1,11 @@
+"use client";
+
 import type { Kit, KitMeta, Question } from "@prepkit/core";
+import { useState } from "react";
+import { useEditKit } from "@/lib/builder";
 import { metaFor } from "@/lib/item-meta";
 import { QuestionCard } from "./question-card";
+import { QuestionEditor, editQuestionOptimistically } from "./question-editor";
 
 // The kit's own category order, which is also the order the pipeline plans them in.
 export const CATEGORY_LABELS: Record<Question["category"], string> = {
@@ -10,8 +15,11 @@ export const CATEGORY_LABELS: Record<Question["category"], string> = {
   "company-fit": "Company fit",
 };
 
-export function QuestionsSection({ kit, meta }: { kit: Kit; meta: KitMeta | null }) {
+export function QuestionsSection({ kitId, kit, meta }: { kitId: string; kit: Kit; meta: KitMeta | null }) {
   const requirements = new Map(kit.role.requirements.map((r) => [r.id, r]));
+  const edit = useEditKit(kitId);
+  // One question is edited at a time; the rest of the page stays as it is.
+  const [editing, setEditing] = useState<string | null>(null);
 
   if (kit.questions.length === 0) {
     return <p className="rounded-xl border border-dashed p-5 text-muted-foreground">This kit has no questions.</p>;
@@ -33,7 +41,19 @@ export function QuestionsSection({ kit, meta }: { kit: Kit; meta: KitMeta | null
               <ul className="flex flex-col gap-3">
                 {questions.map((question) => (
                   <li key={question.id}>
-                    <QuestionCard question={question} meta={metaFor(meta, question.id)} requirements={requirements} />
+                    {editing === question.id ? (
+                      <QuestionEditor
+                        question={question}
+                        requirements={kit.role.requirements}
+                        saving={edit.isPending}
+                        onSave={(patch) =>
+                          edit.mutate({ method: "PATCH", path: `/questions/${question.id}`, body: patch, optimistic: editQuestionOptimistically(question.id, patch), failed: "Your change to this question was not saved" })
+                        }
+                        onClose={() => setEditing(null)}
+                      />
+                    ) : (
+                      <QuestionCard question={question} meta={metaFor(meta, question.id)} requirements={requirements} onEdit={() => setEditing(question.id)} />
+                    )}
                   </li>
                 ))}
               </ul>

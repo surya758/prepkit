@@ -1,4 +1,6 @@
 import type { ItemMeta, Question, Requirement } from "@prepkit/core";
+import { Pencil } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { ItemBadges } from "./item-badges";
 
 const DIFFICULTY = ["Easy", "Medium", "Hard"];
@@ -18,9 +20,10 @@ interface Props {
   question: Question;
   meta: ItemMeta;
   requirements: Map<string, Requirement>;
+  onEdit?: () => void;
 }
 
-export function QuestionCard({ question, meta, requirements }: Props) {
+export function QuestionCard({ question, meta, requirements, onEdit }: Props) {
   return (
     <article aria-label={question.prompt} className="flex flex-col gap-3 rounded-xl border bg-card p-4">
       <p className="font-medium leading-snug">{question.prompt}</p>
@@ -34,6 +37,12 @@ export function QuestionCard({ question, meta, requirements }: Props) {
         ))}
         <Difficulty level={question.difficulty} />
         <span className="ml-auto font-mono text-xs text-muted-foreground">{question.id}</span>
+        {onEdit && (
+          <Button variant="ghost" size="sm" onClick={onEdit} aria-label={`Edit ${question.id}`}>
+            <Pencil aria-hidden="true" />
+            Edit
+          </Button>
+        )}
       </div>
     </article>
   );

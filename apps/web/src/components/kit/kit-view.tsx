@@ -15,7 +15,7 @@ const SECTIONS = [
 ] as const;
 type SectionId = (typeof SECTIONS)[number]["id"];
 
-export function KitView({ kit, meta }: { kit: Kit; meta: KitMeta | null }) {
+export function KitView({ kitId, kit, meta }: { kitId: string; kit: Kit; meta: KitMeta | null }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -55,7 +55,7 @@ export function KitView({ kit, meta }: { kit: Kit; meta: KitMeta | null }) {
           <RoleSection kit={kit} />
         </TabsContent>
         <TabsContent value="questions" className="pt-4">
-          <QuestionsSection kit={kit} meta={meta} />
+          <QuestionsSection kitId={kitId} kit={kit} meta={meta} />
         </TabsContent>
       </Tabs>
     </div>
