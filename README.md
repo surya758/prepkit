@@ -6,8 +6,10 @@ study schedule — which the user can then reshape and practise against.
 
 Built for the Trao full-stack engineering assessment.
 
-> **Status:** in progress. Sections marked _Pending_ are written when the component they describe
-> lands, so that this file only ever documents what exists.
+**Live:** [prepkit-zeta.vercel.app](https://prepkit-zeta.vercel.app) · API at
+[prepkit-api-cp9l.onrender.com/api/health](https://prepkit-api-cp9l.onrender.com/api/health) ·
+[source](https://github.com/surya758/prepkit). The API sleeps when idle on its free tier; the
+first request of a session takes up to a minute and the page says so while it waits.
 
 One rule runs through the whole design: **the model writes prose, the code makes decisions.**
 Ids, coverage, scheduling, validation and case status are deterministic code. The model is never
@@ -29,7 +31,7 @@ asked to do arithmetic or to judge its own completeness.
 - [Long-running generation](#long-running-generation)
 - [Edge cases and failure handling](#edge-cases-and-failure-handling)
 - [Security](#security)
-- [Creative feature](#creative-feature)
+- [Creative feature](#creative-feature-adaptive-re-plan)
 - [Design decisions, trade-offs and known limitations](#design-decisions-trade-offs-and-known-limitations)
 - [Tests](#tests)
 
@@ -42,7 +44,8 @@ TypeScript throughout, in an npm-workspaces monorepo.
 | Pipeline library | `packages/core` — plain TypeScript, [zod](https://zod.dev) for the kit contract | in place |
 | Tests | vitest; fast-check for property-based tests | in place |
 | Backend | `apps/api` — Node.js, Express 5, MongoDB (official driver, zod for validation) | in place |
-| Frontend | `apps/web` — Next.js 16 (App Router), Tailwind CSS v4, [shadcn/ui](https://ui.shadcn.com) on Radix, TanStack Query | accounts and the app shell in place; kits, builder and practice screens _Pending_ |
+| Frontend | `apps/web` — Next.js 16 (App Router), Tailwind CSS v4, [shadcn/ui](https://ui.shadcn.com) on Radix, TanStack Query, dnd-kit, Motion | in place |
+| Hosting | Vercel (web), Render free tier (API), MongoDB Atlas M0; both deploy from a push to `main` | in place |
 
 The pipeline is a library with no web framework or database in it. The brief requires the batch
 command to run "the same code your application uses, not a parallel implementation" and to need no
@@ -138,7 +141,29 @@ npm run dev -w @prepkit/web     # the web app, on http://localhost:3000
 
 The web app needs no other configuration and holds no secrets.
 
-_Pending — the deployed URLs._
+### Deployed
+
+| | Where | How |
+|---|---|---|
+| Web app | [prepkit-zeta.vercel.app](https://prepkit-zeta.vercel.app) | Vercel, connected to the GitHub repo; root directory `apps/web`, `API_URL` set to the API below |
+| API | [prepkit-api-cp9l.onrender.com](https://prepkit-api-cp9l.onrender.com/api/health) | Render free tier from [`render.yaml`](render.yaml); the secrets are entered in its dashboard |
+| Database | MongoDB Atlas M0 | `MONGODB_URI` on the API only |
+
+Both deploy from a push to `main`. Two things the deployment needed that local development did
+not, both found by rehearsing the production install in a clean clone before deploying:
+
+- **`tsx` is a dependency of the API, not a dev tool.** It runs the TypeScript in production as in
+  development, so there is no build step; a `tsc` build would have meant rewriting every import
+  with a `.js` suffix for Node's ESM loader. `npm ci --omit=dev --workspace=@prepkit/api` installs
+  114 packages: the API, the pipeline library, and nothing of the web app or the test tooling.
+- **The web app's build does not typecheck its tests.** Vercel installs production dependencies
+  only, so `vitest` is absent there, and Next's build typechecks everything the tsconfig includes.
+  The app's tsconfig excludes `test/`; a second config that includes it is what `npm run typecheck`
+  and vitest use, so the tests are still typechecked locally and in the fresh-clone check.
+
+The API's free instance sleeps after fifteen minutes idle and takes up to a minute to wake. Every
+page asks for `/api/health` as it opens, which starts the wake-up, and shows a banner if the
+answer is slow (see the web app under Architecture).
 
 ## LLM provider and model
 
@@ -323,8 +348,27 @@ about to need a second copy of all of it.
   both themes, and form-field outlines were raised to 3:1, which shadcn's defaults do not reach.
   Fonts are self-hosted by `next/font`: a visitor's browser never contacts Google.
 
-_Pending — a diagram of the whole, once the remaining screens exist. The working
-design is in [`docs/DESIGN.md`](docs/DESIGN.md)._
+**The whole, at runtime:**
+
+```
+browser ──▶ Vercel: Next.js (apps/web)            renders; owns no data
+               │  /api/* rewritten server-side, Origin forwarded, cookie stays first-party
+               ▼
+            Render: Express (apps/api)            auth · kits · builder · practice
+               │  imports                          │ job runner: generation in-process,
+               ▼                                   ▼ every step written as it happens
+            @prepkit/core (packages/core)       MongoDB Atlas: users · sessions · kits · practice
+               │  the pipeline, the kit contract, the builder's rules, the scheduler
+               ├──▶ the company's site (crawl, robots.txt honoured)
+               ├──▶ Hacker News (public discussion)
+               └──▶ Gemini, then Groq (the model chain)
+
+npm run evaluate ──▶ @prepkit/core directly     the same pipeline, no server, no database
+```
+
+The batch command and the API are both thin callers of `@prepkit/core`; the web app shares only
+its types. The working design, written before any code, is in [`docs/DESIGN.md`](docs/DESIGN.md);
+where this file and that one differ, this file describes what was built.
 
 ## Retrieval approach and sources
 
@@ -721,6 +765,19 @@ that safe:
    simply locked that question. (Tested: the model is held mid-call, the user edits a question in
    the same category, the model returns, the edit survives.)
 
+**In the builder itself.** Every question and flashcard carries the badge the rule implies —
+*generated*, *edited*, *yours*, with *pinned* on top — and each badge's tooltip says what it means
+for a regeneration. Above every category, a sentence says what Regenerate *will do* before it is
+pressed, counted from the same rule: "replaces the 3 generated questions and keeps the 4 you
+edited, wrote or pinned". Editing is in place and saves as you type; adding, deleting (behind a
+confirm) and pinning are one press each. Reordering is by dragging, or from the keyboard — focus
+the handle, Space to pick up, arrow keys to move, Space to drop, Escape to put back, every move
+announced in words — or from a menu on each card that offers the same moves for anyone who would
+rather not drag, plus a move to another category. Every change is applied to the page at once and
+sent as one small request; if the save fails the page is put back and a toast says why. Nothing is
+predicted for a regeneration: the merge is the server's, so that category shows progress while
+everything else stays editable, and the new questions fade in while the kept ones do not move.
+
 The interface sends one small request per change and never the whole kit, so a slow save cannot
 overwrite something edited after it was sent. A failed regeneration changes nothing; if the company
 site cannot be read when the brief is regenerated, the existing brief stays rather than being
@@ -786,7 +843,14 @@ joins them to the kit.
 | `PUT /api/kits/:id/practice/:cardId` `{ "confidence": 1–4 }` | record a rating; answers with the new progress and order |
 | `DELETE /api/kits/:id/practice` | start over |
 
-_Pending — the practice screen itself arrives with the web app._
+**The practice screen** (`/kits/:id/practice`) shows one card at a time: **Space** reveals the
+answer, **1–4** rate it, **S** skips, with the keys printed on the buttons. A rating is only
+possible once the answer has been seen. A sitting takes the server's order once, when it
+begins, and walks it, so cards do not reshuffle as ratings change the next session's order; a
+skipped card stays unseen and so comes first next time. Beside the cards, the coverage panel
+lists every requirement as weak, not started, in progress, confident or without cards, with the
+totals above, all from the API's own statuses. **Start over** forgets every rating behind a
+confirm; the Practise button on the kit page shows how far the user got.
 
 ## Long-running generation
 
@@ -954,9 +1018,49 @@ in the text. If a model obeyed such a line, grounding would let it through; a te
 The line is flagged rather than silently deleted, because a pattern that removes real lines from
 someone's job description does more harm than the attack.
 
-## Creative feature
+## Creative feature: adaptive re-plan
 
-_Pending._
+**The problem.** A study plan made on day one is stale by day two, because by then the user knows
+which requirements are giving them trouble. Every schedule tool plans once; nothing in the plan
+learns from the practice that follows it.
+
+**What it does.** On the Schedule tab, *Re-plan* offers "Lean toward what I found hard in
+practice" — on by default once any card has been rated, and not offered before then. The
+requirements the user rated lowest get their questions moved earlier, onto fuller days; ones
+rated good or better keep their usual weight. Afterwards the schedule says what moved and by how
+much, in the kit's own wording, or that nothing counted as weak and this is the plain plan.
+
+**How.** Not a second scheduler. The existing one ranks questions by `priority × difficulty`;
+practice adds one factor, an *emphasis* per requirement from 1 to 2:
+
+```
+weakness(r)  = mean over r's rated cards of (4 − confidence) / 3      forgot → 1, easy → 0
+emphasis(r)  = 1                       if weakness ≤ that of a card rated "good"   (known is known)
+             = 1 + scaled weakness     up to 2 when every card was forgotten
+weight(q)    = tier × difficulty × max emphasis over q's requirements
+```
+
+A requirement with no rated cards gets no entry: unknown is not weak. Everything else about the
+schedule is untouched, because the allocation is the same arithmetic, and a property test proves
+it: for random kits, days and emphasis, still exactly N days, integer minutes, every question
+placed, a valid kit. The batch command never passes emphasis, and the schedules of the five sample
+kits were checked byte-for-byte unchanged.
+
+**A real run.** With the two map-rendering cards rated "forgot" and the React cards "easy", a 4-day
+re-plan of a 17-question kit moved three of the four map-rendering questions to the front of day
+one and reported `Experience with map rendering (Mapbox or Leaflet) (×2.0)`. The fourth, a
+difficulty-1 question, stayed lower even doubled — a hard question on a weak topic beats an easy
+one, which is what the multiplication means.
+
+**Why this and not spaced repetition.** Interval scheduling answers "when is this card due", in
+days and weeks; the user has an interview in a few days, and most intervals would fall after it.
+Adaptive re-plan answers "what should the days I have left lean toward", which is the question
+someone with two days to go actually has. It is also explainable: the user can see why a question
+moved.
+
+Costs nothing: no model call, and the browser predicts nothing, since the merge is the server's.
+Where it lives: [`packages/core/src/scheduling/adaptive.ts`](packages/core/src/scheduling/adaptive.ts),
+`adaptive: true` on the schedule regeneration, and the Re-plan dialog.
 
 ## Design decisions, trade-offs and known limitations
 
@@ -1050,6 +1154,17 @@ every kind of reply, and — for the builder — that the browser's optimistic e
 same kit as core's real ones. Each file was mutation-checked, which found one real gap: the
 envelope check was only tested against JSON with *no* `error` key, so loosening it survived until a
 case for `{ "error": "Internal Server Error" }` — what many servers send — was added.
+
+Every screen was also driven in a real browser — headless Chrome over the DevTools protocol, with
+real key presses, clicks and drags rather than script-made events — against the production build
+and the real API, checking the server's state after each action: signing in and the redirect
+guard, creating and deleting a kit, the generation timeline as it filled, every builder edit
+including a keyboard reorder and a regeneration with edited and pinned questions in place, a
+practice sitting, and an adaptive re-plan. Several of those runs caught bugs the unit tests could
+not have: a double press that created one kit but left the user told it already existed, a
+reorder the server rejected because it wanted every question's id, and a category move whose
+optimistic position differed from the server's. The last two are now caught by the agreement
+tests. The driver is a scratch script, not part of the repository.
 
 The MongoDB repositories, which the in-memory tests cannot exercise, were run against a real Atlas
 cluster: registration, the duplicate-key path, login, logout, a full kit generated through the API
