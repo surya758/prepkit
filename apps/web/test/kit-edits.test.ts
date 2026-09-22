@@ -1,7 +1,7 @@
 import * as core from "@prepkit/core";
 import type { Kit, KitMeta } from "@prepkit/core";
 import { describe, expect, it } from "vitest";
-import { addQuestion, deleteQuestion, editQuestion, fullOrder, moveQuestion, reorderQuestions, setPinned } from "@/lib/kit-edits";
+import { addFlashcard, addQuestion, deleteFlashcard, deleteQuestion, editFlashcard, editQuestion, fullOrder, moveQuestion, reorderFlashcards, reorderQuestions, setPinned } from "@/lib/kit-edits";
 import type { KitState } from "@/lib/kit-edits";
 
 // A small valid kit, the shape the pipeline produces, with two questions in different categories.
@@ -21,7 +21,10 @@ const kit = (): Kit => ({
     { id: "q1", requirement_ids: ["r1"], category: "technical", prompt: "State?", answer_outline: "Colocate.", difficulty: 2 },
     { id: "q2", requirement_ids: ["r2"], category: "behavioural", prompt: "Mentoring?", answer_outline: "STAR.", difficulty: 1 },
   ],
-  flashcards: [],
+  flashcards: [
+    { id: "f1", front: "useMemo?", back: "Caches a value.", requirement_ids: ["r1"] },
+    { id: "f2", front: "STAR?", back: "Situation, task, action, result.", requirement_ids: ["r2"] },
+  ],
   schedule: { days_available: 1, days: [{ day: 1, focus: "All", question_ids: ["q1", "q2"], minutes: 25 }] },
   coverage: { uncovered_requirement_ids: [], passes: 1 },
 });
@@ -119,5 +122,36 @@ describe("the browser's rules on their own", () => {
   it("copes with meta that has no entry for the item", () => {
     const meta: KitMeta = { items: {}, nextQuestion: 3, nextFlashcard: 1, scheduleEdited: false };
     expect(setPinned({ kit: kit(), meta }, "q1", true).meta.items.q1).toEqual({ origin: "generated", edited: false, pinned: true });
+  });
+});
+
+describe("the flashcard rules agree with core's", () => {
+  const card = { front: "New?", back: "Yes.", requirement_ids: ["r2"] };
+  const cards = ({ kit, meta }: KitState) => ({ flashcards: kit.flashcards, items: meta.items, nextFlashcard: meta.nextFlashcard });
+
+  it("editing", () => {
+    expect(cards(editFlashcard(state(), "f1", { back: "Changed." }))).toEqual(cards(core.editFlashcard(state(), "f1", { back: "Changed." })));
+  });
+
+  it("adding: same id, the user's, counter advanced", () => {
+    const ours = addFlashcard(state(), card);
+    const theirs = core.addFlashcard(state(), card);
+    expect(ours.id).toBe(theirs.id);
+    expect(cards(ours)).toEqual(cards(theirs));
+  });
+
+  it("deleting, and the number is not reused by the next add", () => {
+    const ours = addFlashcard(deleteFlashcard(state(), "f1"), card);
+    const theirs = core.addFlashcard(core.deleteFlashcard(state(), "f1"), card);
+    expect(cards(ours)).toEqual(cards(theirs));
+    expect(ours.kit.flashcards.map((f) => f.id)).toEqual(["f2", "f3"]);
+  });
+
+  it("reordering", () => {
+    expect(cards(reorderFlashcards(state(), ["f2", "f1"]))).toEqual(cards(core.reorderFlashcards(state(), ["f2", "f1"])));
+  });
+
+  it("pinning a flashcard", () => {
+    expect(cards(setPinned(state(), "f2", true))).toEqual(cards(core.setPinned(state(), "f2", true)));
   });
 });
