@@ -47,7 +47,7 @@ export function useRegenerate(kitId: string) {
       }),
   });
 
-  const regenerate = useCallback((target: RegenerateTarget) => mutation.mutate(target), [mutation]);
+  const regenerate = useCallback((target: RegenerateTarget, { onSuccess }: { onSuccess?: () => void } = {}) => mutation.mutate(target, { onSuccess }), [mutation]);
   const isRunning = useCallback((target: RegenerateTarget) => running.has(keyOf(target)), [running]);
   const refusal = useCallback((target: RegenerateTarget) => refused[keyOf(target)] ?? null, [refused]);
 

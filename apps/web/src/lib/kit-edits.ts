@@ -1,4 +1,4 @@
-import type { Flashcard, ItemMeta, Kit, KitMeta, Question } from "@prepkit/core";
+import type { Flashcard, ItemMeta, Kit, KitMeta, Question, ScheduleDay } from "@prepkit/core";
 
 export interface KitState {
   kit: Kit;
@@ -8,6 +8,7 @@ export interface KitState {
 export type QuestionDraft = Omit<Question, "id" | "category">;
 type QuestionPatch = Partial<QuestionDraft> & { category?: Question["category"] };
 export type FlashcardDraft = Omit<Flashcard, "id">;
+export type DayPatch = Partial<Pick<ScheduleDay, "focus" | "minutes" | "question_ids">>;
 
 const GENERATED: ItemMeta = {
   origin: "generated",
@@ -129,4 +130,14 @@ export function deleteFlashcard({ kit, meta }: KitState, id: string): KitState {
 export function reorderFlashcards({ kit, meta }: KitState, orderedIds: string[]): KitState {
   const byId = new Map(kit.flashcards.map((f) => [f.id, f]));
   return { kit: { ...kit, flashcards: orderedIds.map((id) => byId.get(id)!) }, meta };
+}
+
+// --- the schedule ---------------------------------------------------------------------------
+
+/** A day arranged by hand. From then on the schedule is only patched by other edits, never rebuilt. */
+export function editScheduleDay({ kit, meta }: KitState, dayNumber: number, patch: DayPatch): KitState {
+  return {
+    kit: { ...kit, schedule: { ...kit.schedule, days: kit.schedule.days.map((d) => (d.day === dayNumber ? { ...d, ...patch } : d)) } },
+    meta: { ...meta, scheduleEdited: true },
+  };
 }
