@@ -45,7 +45,7 @@ TypeScript throughout, in an npm-workspaces monorepo.
 | Tests | vitest; fast-check for property-based tests | in place |
 | Backend | `apps/api` — Node.js, Express 5, MongoDB (official driver, zod for validation) | in place |
 | Frontend | `apps/web` — Next.js 16 (App Router), Tailwind CSS v4, [shadcn/ui](https://ui.shadcn.com) on Radix, TanStack Query, dnd-kit, Motion | in place |
-| Hosting | Vercel (web), Render free tier (API), MongoDB Atlas M0; both deploy from a push to `main` | in place |
+| Hosting | Vercel (web), Render free tier (API), MongoDB Atlas M0; both deploy from `main` once CI passes | in place |
 
 The pipeline is a library with no web framework or database in it. The brief requires the batch
 command to run "the same code your application uses, not a parallel implementation" and to need no
@@ -145,12 +145,22 @@ The web app needs no other configuration and holds no secrets.
 
 | | Where | How |
 |---|---|---|
-| Web app | [prepkit-zeta.vercel.app](https://prepkit-zeta.vercel.app) | Vercel, connected to the GitHub repo; root directory `apps/web`, `API_URL` set to the API below |
+| Web app | [prepkit-zeta.vercel.app](https://prepkit-zeta.vercel.app) | Vercel; deployed by the CI workflow, root directory `apps/web`, `API_URL` set to the API below |
 | API | [prepkit-api-cp9l.onrender.com](https://prepkit-api-cp9l.onrender.com/api/health) | Render free tier from [`render.yaml`](render.yaml); the secrets are entered in its dashboard |
 | Database | MongoDB Atlas M0 | `MONGODB_URI` on the API only |
 
-Both deploy from a push to `main`. Two things the deployment needed that local development did
-not, both found by rehearsing the production install in a clean clone before deploying:
+**Continuous integration and deployment.** [`ci.yml`](.github/workflows/ci.yml) runs on every
+push and pull request: install from the lockfile, typecheck all three workspaces, run every test,
+lint and build the web app. It needs no key or database, since the tests use a scripted model and
+in-memory repositories, so the batch command is deliberately not run there: it would spend the
+shared free-tier quota on every push. Deploys wait for it and happen from it: once the checks pass
+on `main`, two jobs run in parallel, one telling Render to deploy that commit through its deploy
+hook and one deploying the web app to Vercel from the build CI made. Neither host deploys on its
+own, so there is one pipeline, every deploy is visible on the commit, and what was tested is what
+goes live.
+
+Two things the deployment needed that local development did not, both found by rehearsing the
+production install in a clean clone before deploying:
 
 - **`tsx` is a dependency of the API, not a dev tool.** It runs the TypeScript in production as in
   development, so there is no build step; a `tsc` build would have meant rewriting every import

@@ -3,10 +3,11 @@
 # tests use a scripted model and in-memory repositories — so the batch command itself is not run:
 # it would need a real key and would spend the shared free-tier quota on every push.
 #
-# Deploys wait for this. The API on Render deploys a commit on main only once these checks pass
-# (autoDeployTrigger: checksPass in render.yaml). The web app on Vercel is built for every push
-# as a preview by its Git integration, and promoted to production by the last job here, only
-# after the checks pass and only on main.
+# Deploys wait for this and happen from here: once the checks pass on main, the API is deployed
+# on Render and the web app on Vercel, in parallel, by the two deploy jobs below. Neither host
+# deploys on its own (Render's auto-deploy is off, Vercel is not connected to the repository), so
+# there is one pipeline, every deploy is visible on the commit, and what was tested is what goes
+# live.
 name: CI
 
 on:
@@ -40,8 +41,21 @@ jobs:
       - name: Build the web app
         run: npm run build -w @prepkit/web
 
+  deploy-api:
+    # Render pulls the commit and runs render.yaml's build and start; this only tells it to.
+    needs: check
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger the Render deploy of this commit
+        run: |
+          curl --fail --silent --show-error \
+            "${{ secrets.RENDER_DEPLOY_HOOK_URL }}&ref=${{ github.sha }}" \
+            | sed -E 's/"id":"[^"]+"/"id":"<deploy id>"/'
+
   deploy-web:
-    # The web app's production deploy: only main, only after the checks above.
+    # Vercel builds and deploys what CI checked. `--prebuilt` deploys the build made here.
     needs: check
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -57,8 +71,6 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      # Pull the project's settings and production env, build with them, and deploy that build.
-      # `--prebuilt` deploys what was built here, so what CI tested is what goes live.
       - run: npm i -g vercel@latest
       - run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
       - run: vercel build --prod --token="$VERCEL_TOKEN"
