@@ -49,12 +49,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Trigger the Render deploy
-        # The hook deploys the latest commit on main, which is this one: the job runs only there.
-        # `set -o pipefail`, or curl's failure would be hidden behind sed's success.
         run: |
-          set -o pipefail
-          curl --fail --silent --show-error "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" \
-            | sed -E 's/"id":"[^"]+"/"id":"<deploy id>"/'
+          curl --fail --silent --show-error "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
 
   deploy-web:
     # Vercel builds and deploys what CI checked. `--prebuilt` deploys the build made here.
