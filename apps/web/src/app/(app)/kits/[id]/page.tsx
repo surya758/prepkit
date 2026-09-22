@@ -98,7 +98,7 @@ function Loaded({ kit, onDeleting }: { kit: KitDetail; onDeleting: (deleting: bo
               </ul>
             </details>
           )}
-          <KitView kit={kit.kit} />
+          <KitView kit={kit.kit} meta={kit.meta} />
         </>
       )}
 

@@ -1,19 +1,21 @@
 "use client";
 
-import type { Kit } from "@prepkit/core";
+import type { Kit, KitMeta } from "@prepkit/core";
 import { Check, TriangleAlert } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BriefSection } from "./brief-section";
+import { QuestionsSection } from "./questions-section";
 import { RoleSection } from "./role-section";
 
 const SECTIONS = [
   { id: "brief", label: "Brief" },
   { id: "role", label: "Role" },
+  { id: "questions", label: "Questions" },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]["id"];
 
-export function KitView({ kit }: { kit: Kit }) {
+export function KitView({ kit, meta }: { kit: Kit; meta: KitMeta | null }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -51,6 +53,9 @@ export function KitView({ kit }: { kit: Kit }) {
         </TabsContent>
         <TabsContent value="role" className="pt-4">
           <RoleSection kit={kit} />
+        </TabsContent>
+        <TabsContent value="questions" className="pt-4">
+          <QuestionsSection kit={kit} meta={meta} />
         </TabsContent>
       </Tabs>
     </div>
