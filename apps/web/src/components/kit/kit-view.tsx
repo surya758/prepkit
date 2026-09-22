@@ -5,6 +5,7 @@ import { Check, TriangleAlert } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BriefSection } from "./brief-section";
+import { FlashcardsSection } from "./flashcards-section";
 import { QuestionsSection } from "./questions-section";
 import { RoleSection } from "./role-section";
 
@@ -12,6 +13,7 @@ const SECTIONS = [
   { id: "brief", label: "Brief" },
   { id: "role", label: "Role" },
   { id: "questions", label: "Questions" },
+  { id: "flashcards", label: "Flashcards" },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]["id"];
 
@@ -56,6 +58,9 @@ export function KitView({ kitId, kit, meta }: { kitId: string; kit: Kit; meta: K
         </TabsContent>
         <TabsContent value="questions" className="pt-4">
           <QuestionsSection kitId={kitId} kit={kit} meta={meta} />
+        </TabsContent>
+        <TabsContent value="flashcards" className="pt-4">
+          <FlashcardsSection kitId={kitId} kit={kit} meta={meta} />
         </TabsContent>
       </Tabs>
     </div>

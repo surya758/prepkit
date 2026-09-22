@@ -1,4 +1,4 @@
-import type { ItemMeta, Kit, KitMeta, Question } from "@prepkit/core";
+import type { Flashcard, ItemMeta, Kit, KitMeta, Question } from "@prepkit/core";
 
 export interface KitState {
   kit: Kit;
@@ -7,6 +7,7 @@ export interface KitState {
 
 export type QuestionDraft = Omit<Question, "id" | "category">;
 type QuestionPatch = Partial<QuestionDraft> & { category?: Question["category"] };
+export type FlashcardDraft = Omit<Flashcard, "id">;
 
 const GENERATED: ItemMeta = {
   origin: "generated",
@@ -98,4 +99,34 @@ export const fullOrder = (state: KitState, orderedIds: string[]): string[] => re
  */
 export function moveQuestion(state: KitState, id: string, category: Question["category"]): KitState {
   return editQuestion(state, id, { category });
+}
+
+// --- flashcards: the same rules, on one flat list ------------------------------------------
+
+export function editFlashcard({ kit, meta }: KitState, id: string, patch: Partial<FlashcardDraft>): KitState {
+  return {
+    kit: { ...kit, flashcards: kit.flashcards.map((f) => (f.id === id ? { ...f, ...patch } : f)) },
+    meta: withItem(meta, id, { edited: true }),
+  };
+}
+
+export function addFlashcard({ kit, meta }: KitState, draft: FlashcardDraft): KitState & { id: string } {
+  const id = `f${meta.nextFlashcard}`;
+  return {
+    id,
+    kit: { ...kit, flashcards: [...kit.flashcards, { id, ...draft }] },
+    meta: { ...withItem(meta, id, { origin: "user", edited: false, pinned: false }), nextFlashcard: meta.nextFlashcard + 1 },
+  };
+}
+
+export function deleteFlashcard({ kit, meta }: KitState, id: string): KitState {
+  const items = { ...meta.items };
+  delete items[id];
+  return { kit: { ...kit, flashcards: kit.flashcards.filter((f) => f.id !== id) }, meta: { ...meta, items } };
+}
+
+/** Flashcards are one list, so the order given is the whole order. */
+export function reorderFlashcards({ kit, meta }: KitState, orderedIds: string[]): KitState {
+  const byId = new Map(kit.flashcards.map((f) => [f.id, f]));
+  return { kit: { ...kit, flashcards: orderedIds.map((id) => byId.get(id)!) }, meta };
 }
