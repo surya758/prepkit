@@ -3,7 +3,7 @@
 import { LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,6 +38,13 @@ export function CreateKitForm() {
   // called twice, only the last call's callbacks run: the first press would create the kit and
   // the second would report "already exists", leaving the user on this page believing it failed.
   const inFlight = useRef(false);
+
+  // The choice replaces the submit button the user just pressed, so focus would otherwise fall
+  // off the page; it goes to the choice, which also reads it out.
+  const choice = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (existing) choice.current?.focus();
+  }, [existing]);
 
   function submit(input: CreateKitInput) {
     if (inFlight.current) return;
@@ -108,7 +115,7 @@ export function CreateKitForm() {
       </div>
 
       {existing && (
-        <div role="alert" className="flex flex-col gap-3 rounded-xl border bg-card p-5">
+        <div ref={choice} tabIndex={-1} role="alert" className="flex flex-col gap-3 rounded-xl border bg-card p-5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
           <p className="font-semibold">You already have a kit for this job description and company</p>
           <p className="text-sm text-muted-foreground">Open it to keep your edits and practice, or generate a separate fresh one. A different number of days does not need a new kit: the schedule can be re-planned inside it.</p>
           <div className="flex flex-wrap gap-2">
