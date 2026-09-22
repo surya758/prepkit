@@ -74,7 +74,9 @@ export function ScheduleSection({
           variant="secondary"
           size="sm"
           onClick={() => setReplanning(true)}
-          disabled={running}
+          // Whether the dialog offers the adaptive option depends on the practice data, so the
+          // button waits for it: opened a moment after a fresh load, the option would be missing.
+          disabled={running || practice.isPending}
         >
           <CalendarClock aria-hidden="true" />
           Re-plan
