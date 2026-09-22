@@ -1,0 +1,39 @@
+# Every push and pull request: install from the lockfile, typecheck all three workspaces, run
+# every test, lint and build the web app. Nothing here needs a model key or a database — the
+# tests use a scripted model and in-memory repositories — so the batch command itself is not run:
+# it would need a real key and would spend the shared free-tier quota on every push.
+#
+# Deploys are not gated on this: Render and Vercel deploy from a push to main on their own. This
+# is the check that says whether that push was sound.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Lint the web app
+        run: npm run lint -w @prepkit/web
+
+      - name: Build the web app
+        run: npm run build -w @prepkit/web
