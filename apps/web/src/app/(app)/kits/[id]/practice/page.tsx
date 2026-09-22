@@ -5,6 +5,7 @@ import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { CardStepper } from "@/components/practice/card-stepper";
+import { CoveragePanel } from "@/components/practice/coverage-panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePracticeView, useRateCard } from "@/features/practice";
@@ -22,18 +23,29 @@ export default function PracticePage() {
   // only. Until the user has done anything, the sitting simply IS the first order that arrived,
   // so there is no state to set when data lands.
   const [progressed, setProgressed] = useState<Session | null>(null);
-  const started = useMemo(() => (view.data ? session.start(view.data.order) : null), [view.data]);
+  const started = useMemo(
+    () => (view.data ? session.start(view.data.order) : null),
+    [view.data],
+  );
   // A card deleted in the builder in another tab drops out of the sitting: derived, not stored.
   const sitting = useMemo(() => {
     const base = progressed ?? started;
     if (!base || !kit.data?.kit) return base;
     const present = new Set(kit.data.kit.flashcards.map((f) => f.id));
-    const missing = new Set(base.order.filter((cardId) => !present.has(cardId)));
+    const missing = new Set(
+      base.order.filter((cardId) => !present.has(cardId)),
+    );
     return missing.size > 0 ? session.withoutCards(base, missing) : base;
   }, [progressed, started, kit.data]);
 
-  const reveal = useCallback(() => setProgressed(sitting && session.reveal(sitting)), [sitting]);
-  const skip = useCallback(() => setProgressed(sitting && session.skip(sitting)), [sitting]);
+  const reveal = useCallback(
+    () => setProgressed(sitting && session.reveal(sitting)),
+    [sitting],
+  );
+  const skip = useCallback(
+    () => setProgressed(sitting && session.skip(sitting)),
+    [sitting],
+  );
   const rate = useCallback(
     (confidence: Confidence) => {
       const cardId = sitting ? session.currentCard(sitting) : null;
@@ -59,56 +71,96 @@ export default function PracticePage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-8 sm:py-10">
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-8 sm:py-10">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <Link href={`/kits/${id}?tab=flashcards`} className="text-sm text-muted-foreground underline-offset-4 hover:underline">
+          <Link
+            href={`/kits/${id}?tab=flashcards`}
+            className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+          >
             ← {kit.data ? kitTitle(kit.data) : "The kit"}
           </Link>
           <h1 className="font-display text-4xl">Practice</h1>
         </div>
       </div>
 
-      {!kit.data?.kit || !view.data || !sitting ? (
-        error ? (
-          <div role="alert" className="flex flex-col items-start gap-3 rounded-xl border border-destructive/40 bg-card p-5">
-            <p className="font-semibold">Practice could not be loaded</p>
-            <p className="text-sm text-muted-foreground">{error.message}</p>
-            <Button variant="outline" size="sm" onClick={() => (kit.isError ? kit.refetch() : view.refetch())}>
-              Try again
-            </Button>
-          </div>
-        ) : (
-          <div aria-busy="true" aria-label="Loading practice" className="flex flex-col gap-4">
-            <Skeleton className="h-4 w-1/3" />
-            <Skeleton className="h-72 w-full rounded-2xl" />
-          </div>
-        )
-      ) : session.isFinished(sitting) ? (
-        <div className="flex flex-col items-start gap-3 rounded-2xl border bg-card p-6">
-          <h2 className="font-display text-2xl">{sitting.order.length === 0 ? "Nothing to practise" : "That's the sitting done"}</h2>
-          <p className="text-muted-foreground">
-            {sitting.order.length === 0
-              ? "This kit has no flashcards. Add some in the builder."
-              : `You rated ${Object.keys(sitting.rated).length} of ${sitting.order.length} cards. The next sitting starts with any you have not seen, then the ones you found hardest.`}
-          </p>
-          <div className="flex gap-2">
-            {sitting.order.length > 0 && <Button onClick={() => setProgressed(session.start(view.data.order))}>Go again</Button>}
-            <Button variant="outline" asChild>
-              <Link href={`/kits/${id}?tab=flashcards`}>Back to the kit</Link>
-            </Button>
-          </div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        <div className="flex flex-col gap-6">
+          {!kit.data?.kit || !view.data || !sitting ? (
+            error ? (
+              <div
+                role="alert"
+                className="flex flex-col items-start gap-3 rounded-xl border border-destructive/40 bg-card p-5"
+              >
+                <p className="font-semibold">Practice could not be loaded</p>
+                <p className="text-sm text-muted-foreground">{error.message}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => (kit.isError ? kit.refetch() : view.refetch())}
+                >
+                  Try again
+                </Button>
+              </div>
+            ) : (
+              <div
+                aria-busy="true"
+                aria-label="Loading practice"
+                className="flex flex-col gap-4"
+              >
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-72 w-full rounded-2xl" />
+              </div>
+            )
+          ) : session.isFinished(sitting) ? (
+            <div className="flex flex-col items-start gap-3 rounded-2xl border bg-card p-6">
+              <h2 className="font-display text-2xl">
+                {sitting.order.length === 0
+                  ? "Nothing to practise"
+                  : "That's the sitting done"}
+              </h2>
+              <p className="text-muted-foreground">
+                {sitting.order.length === 0
+                  ? "This kit has no flashcards. Add some in the builder."
+                  : `You rated ${Object.keys(sitting.rated).length} of ${sitting.order.length} cards. The next sitting starts with any you have not seen, then the ones you found hardest.`}
+              </p>
+              <div className="flex gap-2">
+                {sitting.order.length > 0 && (
+                  <Button
+                    onClick={() =>
+                      setProgressed(session.start(view.data.order))
+                    }
+                  >
+                    Go again
+                  </Button>
+                )}
+                <Button variant="outline" asChild>
+                  <Link href={`/kits/${id}?tab=flashcards`}>
+                    Back to the kit
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <CardStepper
+              session={sitting}
+              cards={new Map(kit.data.kit.flashcards.map((f) => [f.id, f]))}
+              requirements={
+                new Map(kit.data.kit.role.requirements.map((r) => [r.id, r]))
+              }
+              onReveal={reveal}
+              onRate={rate}
+              onSkip={skip}
+            />
+          )}
         </div>
-      ) : (
-        <CardStepper
-          session={sitting}
-          cards={new Map(kit.data.kit.flashcards.map((f) => [f.id, f]))}
-          requirements={new Map(kit.data.kit.role.requirements.map((r) => [r.id, r]))}
-          onReveal={reveal}
-          onRate={rate}
-          onSkip={skip}
-        />
-      )}
+        {kit.data?.kit && view.data && (
+          <CoveragePanel
+            progress={view.data.progress}
+            requirements={kit.data.kit.role.requirements}
+          />
+        )}
+      </div>
     </main>
   );
 }
