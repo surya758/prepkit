@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePracticeView } from "@/features/practice";
 import { BriefSection } from "./brief-section";
 import { FlashcardsSection } from "./flashcards-section";
 import { QuestionsSection } from "./questions-section";
@@ -20,6 +21,22 @@ const SECTIONS = [
   { id: "schedule", label: "Schedule" },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]["id"];
+
+function PractiseButton({ kitId, href }: { kitId: string; href: string }) {
+  // A hint of where the user got to, so practice is something to come back to, not start from cold.
+  const view = usePracticeView(kitId);
+  const p = view.data?.progress;
+  const hint =
+    p && p.total > 0 && p.practised > 0 ? `${p.practised} of ${p.total}` : null;
+  return (
+    <Button asChild>
+      <Link href={href}>
+        <GraduationCap aria-hidden="true" />
+        {hint ? `Practise · ${hint}` : "Practise"}
+      </Link>
+    </Button>
+  );
+}
 
 export function KitView({
   kitId,
@@ -63,12 +80,7 @@ export function KitView({
             </span>
           </div>
         )}
-        <Button asChild>
-          <Link href={`${pathname}/practice`}>
-            <GraduationCap aria-hidden="true" />
-            Practise
-          </Link>
-        </Button>
+        <PractiseButton kitId={kitId} href={`${pathname}/practice`} />
       </div>
 
       <Tabs

@@ -6,9 +6,14 @@ import { notFound, useParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { CardStepper } from "@/components/practice/card-stepper";
 import { CoveragePanel } from "@/components/practice/coverage-panel";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { usePracticeView, useRateCard } from "@/features/practice";
+import {
+  usePracticeView,
+  useRateCard,
+  useResetPractice,
+} from "@/features/practice";
 import { ApiError } from "@/lib/api";
 import { kitTitle, useKit } from "@/lib/kits";
 import * as session from "@/lib/practice-session";
@@ -19,6 +24,8 @@ export default function PracticePage() {
   const kit = useKit(id);
   const view = usePracticeView(id);
   const rating = useRateCard(id);
+  const reset = useResetPractice(id);
+  const [resetting, setResetting] = useState(false);
   // The sitting is taken from the server's order once, when it begins; ratings update progress
   // only. Until the user has done anything, the sitting simply IS the first order that arrived,
   // so there is no state to set when data lands.
@@ -82,7 +89,35 @@ export default function PracticePage() {
           </Link>
           <h1 className="font-display text-4xl">Practice</h1>
         </div>
+        {view.data && view.data.progress.practised > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground"
+            onClick={() => setResetting(true)}
+          >
+            Start over
+          </Button>
+        )}
       </div>
+
+      <ConfirmDialog
+        open={resetting}
+        onOpenChange={setResetting}
+        title="Start over?"
+        description="Every rating you have given on this kit's cards is forgotten, and the next sitting begins from the first card again. The cards themselves are not touched."
+        confirmLabel="Forget my ratings"
+        cancelLabel="Keep them"
+        pending={reset.isPending}
+        onConfirm={() =>
+          reset.mutate(undefined, {
+            onSuccess: ({ practice }) => {
+              setResetting(false);
+              setProgressed(session.start(practice.order));
+            },
+          })
+        }
+      />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <div className="flex flex-col gap-6">
