@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Wordmark } from "@/components/wordmark";
 import { useMe, useSignOut } from "@/lib/auth";
 
@@ -30,27 +31,44 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!me.data) {
-    return (
-      <main className="flex flex-1 items-center justify-center" aria-busy="true">
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      </main>
-    );
-  }
-
+  // While the user is being checked the frame is already there: the header with the parts that
+  // need no user, and the shape of a page below it, so the wait reads as the app loading rather
+  // than as an empty screen.
   return (
     <div className="flex flex-1 flex-col">
       <header className="flex items-center justify-between gap-4 border-b px-4 py-3 sm:px-8">
         <Wordmark />
         <div className="flex items-center gap-1 sm:gap-3">
-          <span className="hidden max-w-56 truncate text-sm text-muted-foreground sm:inline">{me.data.email}</span>
+          {me.data ? (
+            <span className="hidden max-w-56 truncate text-sm text-muted-foreground sm:inline">{me.data.email}</span>
+          ) : (
+            <Skeleton className="hidden h-4 w-40 sm:block" />
+          )}
           <ThemeToggle />
-          <Button variant="outline" size="sm" disabled={signOut.isPending} onClick={() => signOut.mutate()}>
-            Sign out
-          </Button>
+          {me.data ? (
+            <Button variant="outline" size="sm" disabled={signOut.isPending} onClick={() => signOut.mutate()}>
+              Sign out
+            </Button>
+          ) : (
+            <Skeleton className="h-8 w-20" />
+          )}
         </div>
       </header>
-      {children}
+      {me.data ? (
+        children
+      ) : (
+        <main aria-busy="true" aria-label="Loading" className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-4 py-8 sm:px-8 sm:py-10">
+          <Skeleton className="h-10 w-48" />
+          <div className="flex flex-col gap-3">
+            {[0, 1, 2].map((row) => (
+              <div key={row} className="flex flex-col gap-3 rounded-xl border bg-card p-5">
+                <Skeleton className="h-5 w-2/3" />
+                <Skeleton className="h-4 w-1/3" />
+              </div>
+            ))}
+          </div>
+        </main>
+      )}
     </div>
   );
 }
