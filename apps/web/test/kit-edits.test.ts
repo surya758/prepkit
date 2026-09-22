@@ -1,7 +1,7 @@
 import * as core from "@prepkit/core";
 import type { Kit, KitMeta } from "@prepkit/core";
 import { describe, expect, it } from "vitest";
-import { addFlashcard, addQuestion, deleteFlashcard, deleteQuestion, editFlashcard, editQuestion, editScheduleDay, fullOrder, moveQuestion, reorderFlashcards, reorderQuestions, setPinned } from "@/lib/kit-edits";
+import { addFlashcard, addQuestion, deleteFlashcard, deleteQuestion, editBrief, editFlashcard, editQuestion, editScheduleDay, fullOrder, moveQuestion, reorderFlashcards, reorderQuestions, setPinned } from "@/lib/kit-edits";
 import type { KitState } from "@/lib/kit-edits";
 
 // A small valid kit, the shape the pipeline produces, with two questions in different categories.
@@ -164,5 +164,26 @@ describe("the schedule rule agrees with core's", () => {
     expect(ours.kit.schedule).toEqual(theirs.kit.schedule);
     expect(ours.meta.scheduleEdited).toBe(true);
     expect(theirs.meta.scheduleEdited).toBe(true);
+  });
+});
+
+describe("the brief rule agrees with core's", () => {
+  it("rewriting a field trims it, marks that field edited, and leaves the other field and the sources alone", () => {
+    const ours = editBrief(state(), "summary", "  Acme, in my words.  ");
+    const theirs = core.editBrief(state(), "summary", "  Acme, in my words.  ");
+    expect(ours.kit.company_brief).toEqual(theirs.kit.company_brief);
+    expect(ours.meta.items).toEqual(theirs.meta.items);
+    expect(ours.kit.company_brief.summary).toBe("Acme, in my words.");
+    expect(ours.meta.items["brief.summary"]).toEqual({ origin: "generated", edited: true, pinned: false });
+    expect(ours.meta.items["brief.what_they_do"]).toBeUndefined();
+  });
+
+  it("a rewritten field survives a regeneration, the untouched one is replaced", () => {
+    const rewritten = core.editBrief(state(), "summary", "Acme, in my words.");
+    const fresh = { summary: "Fresh summary.", what_they_do: "Fresh description.", sources: ["https://acme.example/about"] };
+    const merged = core.mergeRegeneratedBrief(rewritten, fresh);
+    expect(merged.kit.company_brief.summary).toBe("Acme, in my words.");
+    expect(merged.kit.company_brief.what_they_do).toBe("Fresh description.");
+    expect(merged.replaced).toEqual(["what_they_do"]);
   });
 });
