@@ -28,6 +28,10 @@ function threeQuestionKit(): Kit {
     { id: "q2", requirement_ids: ["r1"], category: "technical", prompt: "How does reconciliation work?", answer_outline: "Diffing.", difficulty: 2 },
     { id: "q3", requirement_ids: ["r2"], category: "behavioural", prompt: "Tell me about mentoring.", answer_outline: "STAR.", difficulty: 2 },
   ];
+  kit.flashcards = [
+    { id: "f1", front: "useMemo?", back: "Caches a value.", requirement_ids: ["r1"] },
+    { id: "f2", front: "Mentoring?", back: "Feedback they can act on.", requirement_ids: ["r2"] },
+  ];
   kit.schedule.days = [
     { day: 1, focus: "Technical", question_ids: ["q1", "q2"], minutes: 30 },
     { day: 2, focus: "Behavioural", question_ids: ["q3"], minutes: 15 },
@@ -41,8 +45,10 @@ function setup(regenerate: Partial<Regenerators> = {}, generate: GenerateFn = as
   const kitRepository = createMemoryKitRepository();
   const runner = createJobRunner({ kits: kitRepository, generate, logError: () => {} });
   const requireUser = createRequireUser(auth);
+  const practiceRepository = createMemoryPracticeRepository();
   const builder = createBuilderService({
     kits: kitRepository,
+    practice: practiceRepository,
     regenerate: {
       categoryDrafts: async () => [fresh("A fresh technical question?")],
       brief: async () => ({ summary: "A fresh summary.", what_they_do: "A fresh description.", sources: ["https://acme.example/about"] }),
@@ -66,7 +72,7 @@ function setup(regenerate: Partial<Regenerators> = {}, generate: GenerateFn = as
     await runner.idle();
     return { browser, id };
   };
-  return { app, runner, kitRepository, signInWithKit };
+  return { app, runner, kitRepository, practiceRepository, signInWithKit };
 }
 
 const prompts = (kit: { kit: Kit }) => kit.kit.questions.map((q) => q.prompt);
@@ -136,7 +142,7 @@ describe("flashcards, the brief and the schedule", () => {
     const { browser, id } = await setup().signInWithKit();
     expect((await browser.patch(`/api/kits/${id}/flashcards/f1`).send({ back: "My wording." })).body.kit.meta.items.f1.edited).toBe(true);
     expect((await browser.post(`/api/kits/${id}/flashcards`).send({ front: "STAR", back: "Situation, task, action, result." })).status).toBe(201);
-    expect((await browser.delete(`/api/kits/${id}/flashcards/f1`)).body.kit.kit.flashcards.map((f: { id: string }) => f.id)).toEqual(["f2"]);
+    expect((await browser.delete(`/api/kits/${id}/flashcards/f1`)).body.kit.kit.flashcards.map((f: { id: string }) => f.id)).toEqual(["f2", "f3"]);
   });
 
   it("rewrites a field of the brief", async () => {
@@ -157,6 +163,44 @@ describe("flashcards, the brief and the schedule", () => {
     const { browser, id } = await setup({ categoryDrafts: async () => { throw new Error("no model call expected"); } }).signInWithKit();
     const response = await browser.post(`/api/kits/${id}/regenerate`).send({ section: "schedule", days: 7 });
     expect(response.body.kit.kit.schedule.days).toHaveLength(7);
+    expect(response.body.emphasised).toEqual([]);
+  });
+});
+
+describe("adaptive re-plan: practice leans the schedule", () => {
+  // All three questions are must-have, difficulty 2: they tie, so only practice can change who comes first.
+  const firstDay = (body: { kit: { kit: Kit } }) => body.kit.kit.schedule.days[0]!.question_ids;
+
+  it("moves the questions of a requirement the user keeps forgetting to the first day, and says so", async () => {
+    const { practiceRepository, signInWithKit } = setup();
+    const { browser, id } = await signInWithKit();
+    const owner = (await browser.get("/api/auth/me")).body.user.id as string;
+    await practiceRepository.rate(owner, id, "f2", 1, new Date()); // forgot the mentoring card (r2)
+    await practiceRepository.rate(owner, id, "f1", 4, new Date()); // React was easy (r1)
+
+    const plain = await browser.post(`/api/kits/${id}/regenerate`).send({ section: "schedule", days: 3 });
+    expect(firstDay(plain.body)).toEqual(["q1"]);
+
+    const adaptive = await browser.post(`/api/kits/${id}/regenerate`).send({ section: "schedule", days: 3, adaptive: true });
+    expect(firstDay(adaptive.body)).toEqual(["q3"]);
+    expect(adaptive.body.emphasised).toEqual(["You have mentored junior engineers (×2.0)"]);
+    expect(adaptive.body.kit.kit.schedule.days).toHaveLength(3);
+  });
+
+  it("is the plain plan, and names nothing, when nothing has been practised", async () => {
+    const { browser, id } = await setup().signInWithKit();
+    const plain = await browser.post(`/api/kits/${id}/regenerate`).send({ section: "schedule", days: 3 });
+    const adaptive = await browser.post(`/api/kits/${id}/regenerate`).send({ section: "schedule", days: 3, adaptive: true });
+    expect(adaptive.body.kit.kit.schedule).toEqual(plain.body.kit.kit.schedule);
+    expect(adaptive.body.emphasised).toEqual([]);
+  });
+
+  it("does not read another user's ratings", async () => {
+    const { practiceRepository, signInWithKit } = setup();
+    const { browser, id } = await signInWithKit();
+    await practiceRepository.rate("someone-else", id, "f2", 1, new Date());
+    const adaptive = await browser.post(`/api/kits/${id}/regenerate`).send({ section: "schedule", days: 3, adaptive: true });
+    expect(adaptive.body.emphasised).toEqual([]);
   });
 });
 
