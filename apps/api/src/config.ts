@@ -13,6 +13,9 @@ const envSchema = z.object({
   // The address people open the web app at. State-changing requests from any other website
   // are refused.
   WEB_ORIGIN: z.url().default("http://localhost:3000"),
+  // Set by Render on every service: the address the instance is reached at. Its presence is
+  // what switches the keep-awake self-request on (see keep-awake.ts).
+  RENDER_EXTERNAL_URL: z.url().optional(),
 });
 
 export interface Config {
@@ -27,6 +30,8 @@ export interface Config {
    * from a flag, so there is no setting to get wrong.
    */
   allowPrivateHosts: boolean;
+  /** The public address of this instance when the host provides one; null locally. */
+  publicUrl: string | null;
 }
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
@@ -46,5 +51,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     webOrigin: new URL(parsed.data.WEB_ORIGIN).origin,
     isProduction,
     allowPrivateHosts: !isProduction,
+    publicUrl: parsed.data.RENDER_EXTERNAL_URL ?? null,
   };
 }

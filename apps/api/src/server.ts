@@ -12,6 +12,7 @@ import { createBuilderService } from "./kits/builder-service";
 import { createJobRunner } from "./kits/job-runner";
 import { createKitRepository } from "./kits/repository";
 import { createKitRouter } from "./kits/routes";
+import { startKeepAwake } from "./keep-awake";
 import { createKitService } from "./kits/service";
 import { createRequireUser } from "./middleware/require-user";
 import { createPracticeRepository } from "./practice/repository";
@@ -90,6 +91,7 @@ const app = createApp({
 const server = app.listen(config.port, () => {
   console.log(`[api] listening on :${config.port} (${config.env}), accepting requests from ${config.webOrigin}`);
 });
+if (config.publicUrl) startKeepAwake(config.publicUrl);
 
 // Hosting platforms stop a container with SIGTERM. Stop taking requests, give kits that are
 // generating a moment to finish, close the database, then leave.
