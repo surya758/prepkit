@@ -1,0 +1,21 @@
+name: keep-awake
+
+# Render's free instance spins down after fifteen minutes without a request and takes up to a
+# minute to come back, which is the one long wait in the app. Asking for the health check every
+# ten minutes keeps it up. GitHub may run a schedule a few minutes late, so an occasional wake-up
+# is still possible; the web app's banner covers that case.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Request the API's health check
+        run: |
+          curl --fail --silent --show-error --max-time 120 https://prepkit-api-cp9l.onrender.com/api/health
+          echo

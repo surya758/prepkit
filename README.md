@@ -7,8 +7,9 @@ engineering assessment.
 
 **Live:** [prepkit-zeta.vercel.app](https://prepkit-zeta.vercel.app) · API health at
 [prepkit-api-cp9l.onrender.com/api/health](https://prepkit-api-cp9l.onrender.com/api/health).
-The API sleeps when idle on its free tier; the first request of a session can take up to a minute
-and the page says so while it waits.
+The API runs on a free instance that spins down after fifteen idle minutes; a scheduled workflow
+([`keep-awake.yml`](.github/workflows/keep-awake.yml)) requests its health check every ten minutes
+so that rarely happens, and if it does the page says so while it waits (up to a minute).
 
 One rule runs through the design: **the model writes prose, the code makes decisions.** Ids,
 must/nice, coverage, scheduling and validation are deterministic code; the model is never asked to
