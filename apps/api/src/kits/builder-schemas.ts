@@ -36,5 +36,10 @@ export const editScheduleDaySchema = z
 export const regenerateSchema = z.discriminatedUnion("section", [
   z.object({ section: z.literal("questions"), category }),
   z.object({ section: z.literal("brief") }),
-  z.object({ section: z.literal("schedule"), days: z.int().min(1).max(MAX_DAYS).optional() }),
+  z.object({
+    section: z.literal("schedule"),
+    days: z.int().min(1).max(MAX_DAYS).optional(),
+    /** Lean the plan toward the requirements practice has shown to be weak. */
+    adaptive: z.boolean().optional(),
+  }),
 ]);

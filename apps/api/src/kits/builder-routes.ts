@@ -87,7 +87,8 @@ export function createBuilderRouter({ builder, requireUser }: BuilderRouterDepen
     const body = regenerateSchema.parse(req.body);
     if (body.section === "questions") return res.json(toView(await builder.regenerateCategory(...who(req), body.category)));
     if (body.section === "brief") return res.json(toView(await builder.regenerateBrief(...who(req))));
-    return res.json(toView(await builder.regenerateSchedule(...who(req), body.days)));
+    const { emphasised, ...record } = await builder.regenerateSchedule(...who(req), body.days, body.adaptive);
+    return res.json({ ...toView(record), emphasised });
   });
 
   return router;

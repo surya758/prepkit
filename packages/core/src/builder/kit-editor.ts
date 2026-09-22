@@ -3,6 +3,7 @@ import type { DraftQuestion } from "../pipeline/steps/questions";
 import { QUESTION_CATEGORIES, validateKit } from "../schema/kit";
 import type { Flashcard, Kit, Question, ScheduleDay } from "../schema/kit";
 import { MAX_MINUTES_PER_DAY, MINUTES_BY_DIFFICULTY, buildSchedule } from "../scheduling/schedule";
+import type { Emphasis } from "../scheduling/schedule";
 
 // The builder's rules. A kit arrives as a draft and the user reshapes it; regenerating one
 // section must not discard work done anywhere else, and must not discard a question the user
@@ -314,12 +315,16 @@ export function mergeRegeneratedBrief(input: EditableKit, fresh: Kit["company_br
  * days, which is how a kit is re-planned for a different interview date without generating
  * anything again.
  */
-export function regenerateSchedule(input: EditableKit, days?: number): EditableKit {
+/**
+ * A full recompute, the one explicit discard of a hand-arranged schedule. With `emphasis`
+ * (from practice, see scheduling/adaptive.ts) the recompute leans toward weak requirements.
+ */
+export function regenerateSchedule(input: EditableKit, days?: number, emphasis?: Emphasis): EditableKit {
   if (days !== undefined && (!Number.isInteger(days) || days < 1 || days > MAX_SCHEDULE_DAYS)) {
     throw new KitEditError("INVALID_EDIT", `Days must be a whole number from 1 to ${MAX_SCHEDULE_DAYS}`);
   }
   const state = copy(input);
-  state.kit.schedule = buildSchedule(state.kit.questions, state.kit.role.requirements, days ?? state.kit.schedule.days_available);
+  state.kit.schedule = buildSchedule(state.kit.questions, state.kit.role.requirements, days ?? state.kit.schedule.days_available, emphasis);
   state.meta.scheduleEdited = false;
   return finish(state);
 }

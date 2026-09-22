@@ -70,6 +70,7 @@ if (interrupted > 0) console.log(`[api] marked ${interrupted} kit(s) interrupted
 const requireUser = createRequireUser(auth);
 const builder = createBuilderService({
   kits: kitRepository,
+  practice: practiceRepository,
   regenerate: {
     categoryDrafts: async (kit, category, lockedCount) => (await regenerateCategoryDrafts(llm, kit, category, lockedCount)).drafts,
     brief: async (kit) => (await regenerateBriefFresh(llm, kit, { allowPrivateHosts: config.allowPrivateHosts })).brief,

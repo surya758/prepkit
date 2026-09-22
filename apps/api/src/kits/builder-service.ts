@@ -17,7 +17,9 @@ import {
   reorderQuestions,
   setPinned,
 } from "@prepkit/core";
+import { emphasisFromPractice, emphasisSummary, practiceProgress } from "@prepkit/core";
 import type { BriefField, DraftFlashcard, DraftQuestion, EditableKit, Kit, Question, ScheduleDay } from "@prepkit/core";
+import type { PracticeRepository } from "../practice/repository";
 import { AppError } from "../errors";
 import { findReadyKit } from "./ready-kit";
 import type { KitRecord, KitRepository } from "./repository";
@@ -42,14 +44,19 @@ export interface Regenerators {
 export interface BuilderServiceDependencies {
   kits: KitRepository;
   regenerate: Regenerators;
+  /** Read, never written, for an adaptive re-plan. */
+  practice: Pick<PracticeRepository, "listForKit">;
   now?: () => Date;
 }
+
+/** A re-planned kit, and — when practice was consulted — which requirements were moved earlier. */
+export type ReplannedKit = KitRecord & { emphasised: string[] };
 
 type Change = (state: EditableKit) => EditableKit;
 
 export type BuilderService = ReturnType<typeof createBuilderService>;
 
-export function createBuilderService({ kits, regenerate, now = () => new Date() }: BuilderServiceDependencies) {
+export function createBuilderService({ kits, regenerate, practice, now = () => new Date() }: BuilderServiceDependencies) {
   const loadReady = (userId: string, kitId: string) => findReadyKit(kits, userId, kitId, "edited");
 
   async function apply(userId: string, kitId: string, change: Change): Promise<KitRecord> {
@@ -100,7 +107,20 @@ export function createBuilderService({ kits, regenerate, now = () => new Date() 
       return apply(userId, kitId, (s) => mergeRegeneratedBrief(s, fresh));
     },
 
-    /** No model involved: allocation is arithmetic. `days` re-plans for a different interview date. */
-    regenerateSchedule: (userId: string, kitId: string, days?: number) => apply(userId, kitId, (s) => regenerateSchedule(s, days)),
+    /**
+     * No model involved: allocation is arithmetic. `days` re-plans for a different interview
+     * date. `adaptive` reads the user's practice ratings first and leans the plan toward the
+     * requirements they found hardest; with nothing rated yet it is the plain plan, and the
+     * answer says so by naming nothing.
+     */
+    async regenerateSchedule(userId: string, kitId: string, days?: number, adaptive = false): Promise<ReplannedKit> {
+      if (!adaptive) return { ...(await apply(userId, kitId, (s) => regenerateSchedule(s, days))), emphasised: [] };
+      const before = await loadReady(userId, kitId);
+      const progress = practiceProgress(before.kit, await practice.listForKit(userId, kitId));
+      const emphasis = emphasisFromPractice(progress);
+      const text = new Map(before.kit.role.requirements.map((r) => [r.id, r.text]));
+      const record = await apply(userId, kitId, (s) => regenerateSchedule(s, days, emphasis));
+      return { ...record, emphasised: emphasisSummary(emphasis, (id) => text.get(id) ?? id) };
+    },
   };
 }
