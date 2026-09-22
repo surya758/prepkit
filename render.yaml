@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: prepkit-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: .
+    buildCommand: npm ci --omit=dev --workspace=@prepkit/api
+    startCommand: npm run start -w @prepkit/api
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: WEB_ORIGIN
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
