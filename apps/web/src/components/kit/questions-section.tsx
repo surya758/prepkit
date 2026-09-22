@@ -1,12 +1,13 @@
 "use client";
 
 import type { Kit, KitMeta, Question } from "@prepkit/core";
-import { Plus } from "lucide-react";
+import { LoaderCircle, Plus, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { useQuestionEdits } from "@/features/questions";
-import { metaFor } from "@/lib/item-meta";
+import { useRegenerate } from "@/features/regenerate";
+import { isKept, metaFor } from "@/lib/item-meta";
 import { QuestionCard } from "./question-card";
 import { QuestionEditor } from "./question-editor";
 import { SortableList } from "./sortable-list";
@@ -30,6 +31,7 @@ export function QuestionsSection({
 }) {
   const requirements = new Map(kit.role.requirements.map((r) => [r.id, r]));
   const edits = useQuestionEdits(kitId);
+  const regen = useRegenerate(kitId);
   // Which editor or dialog is open. The only state a view owns.
   const [editing, setEditing] = useState<string | null>(null);
   const [adding, setAdding] = useState<Question["category"] | null>(null);
@@ -58,6 +60,12 @@ export function QuestionsSection({
           const questions = kit.questions.filter(
             (q) => q.category === category,
           );
+          const target = { section: "questions", category } as const;
+          const running = regen.isRunning(target);
+          const refusal = regen.refusal(target);
+          const kept = questions.filter((q) =>
+            isKept(metaFor(meta, q.id)),
+          ).length;
           return (
             <section
               key={category}
@@ -74,16 +82,59 @@ export function QuestionsSection({
                     {questions.length}
                   </span>
                 </h2>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setAdding(category)}
-                  disabled={adding === category}
-                >
-                  <Plus aria-hidden="true" />
-                  Add question
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAdding(category)}
+                    disabled={adding === category}
+                  >
+                    <Plus aria-hidden="true" />
+                    Add question
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => regen.regenerate(target)}
+                    disabled={running}
+                    aria-describedby={`regen-note-${category}`}
+                  >
+                    {running ? (
+                      <LoaderCircle
+                        className="animate-spin motion-reduce:animate-none"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <RefreshCw aria-hidden="true" />
+                    )}
+                    {running ? "Regenerating" : "Regenerate"}
+                  </Button>
+                </div>
               </div>
+              {/* What a regeneration will do, said before it is pressed: the rule the badges show, in a sentence. */}
+              <p
+                id={`regen-note-${category}`}
+                role={running ? "status" : undefined}
+                className="text-sm text-muted-foreground"
+              >
+                {running
+                  ? `Asking for fresh ${CATEGORY_LABELS[category].toLowerCase()} questions. ${kept === 0 ? "Everything here will be replaced." : `The ${kept} you edited, wrote or pinned stay exactly as they are.`} You can keep editing meanwhile.`
+                  : questions.length === 0
+                    ? "Regenerate asks the model to write questions for this category."
+                    : kept === 0
+                      ? "Regenerate replaces all of these. Edit or pin a question to keep it."
+                      : kept === questions.length
+                        ? "Every question here is yours, edited or pinned, so Regenerate would keep them all and add nothing."
+                        : `Regenerate replaces the ${questions.length - kept} generated ${questions.length - kept === 1 ? "question" : "questions"} and keeps the ${kept} you edited, wrote or pinned.`}
+              </p>
+              {refusal && (
+                <p
+                  role="alert"
+                  className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground"
+                >
+                  {refusal}
+                </p>
+              )}
               {questions.length === 0 && adding !== category ? (
                 // Still listed, so the absence is a fact on the page and a place to add or regenerate.
                 <p className="text-sm text-muted-foreground">
