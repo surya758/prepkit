@@ -75,22 +75,40 @@ flowchart TD
 
 ## 3. Data model
 
-Provenance lives beside the kit on the document, keyed by item id or brief field, never inside
-it, so every Appendix A object keeps its exact shape:
+The kit itself is Appendix A, dictated by the brief. What was designed is the document around it,
+which is what lets a kit be reopened mid-generation, edited without losing the user's work, and
+regenerated without clobbering it:
 
 ```ts
-item_meta: Record<'q7' | 'f3' | 'brief.summary' | string,
-  { origin: 'generated' | 'user'; edited: boolean; pinned: boolean; updated_at: string }>
-next_question_id: number      // ids are never reused
-next_flashcard_id: number
-revision: number              // optimistic concurrency for whole-kit saves
+// kits — one document per kit
+{
+  id, userId,
+  input: { description, companyUrl, days },
+  fingerprint,                       // normalised description + company URL; unique per user
+  status: "queued" | "running" | "ready" | "failed",
+  progress: ProgressEvent[],         // every pipeline step so far; a reload redraws from this
+  error: { code, message } | null,
+  kit: Kit | null,                   // Appendix A, exactly
+  meta: {                            // beside the kit, never inside it
+    items: Record<"q7" | "f3" | "brief.summary", { origin: "generated" | "user", edited, pinned }>,
+    nextQuestion, nextFlashcard,     // ids are never reused
+    scheduleEdited,                  // once arranged by hand the schedule is patched, not rebuilt
+  } | null,
+  rev,                               // +1 on every save; a save names the rev it was based on
+  createdAt, updatedAt,
+}
 ```
+
+`meta.items` is the answer to the brief's generated / edited / pinned question: an item is locked
+when its origin is `user`, or it is edited, or pinned, and a regeneration replaces only unlocked
+items. Keeping it beside the kit means every Appendix A object stays exactly the shape the brief
+gives it.
 
 | Collection | Holds | Keys |
 |---|---|---|
 | `users` | email, password hash | unique email |
 | `sessions` | token hash, user, expiry | unique token hash; TTL on expiry |
-| `kits` | the kit, `item_meta`, counters, `revision`, job status and step log, fingerprint | `(user, fingerprint)` unique |
+| `kits` | as above | `(user, fingerprint)` unique |
 | `practice` | `{ userId, kitId, cardId, confidence, reps, reviewedAt }` | `(user, kit, card)` unique |
 
 ## 4. Design decisions
