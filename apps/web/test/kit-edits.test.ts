@@ -1,7 +1,7 @@
 import * as core from "@prepkit/core";
 import type { Kit, KitMeta } from "@prepkit/core";
 import { describe, expect, it } from "vitest";
-import { addFlashcard, addQuestion, deleteFlashcard, deleteQuestion, editFlashcard, editQuestion, fullOrder, moveQuestion, reorderFlashcards, reorderQuestions, setPinned } from "@/lib/kit-edits";
+import { addFlashcard, addQuestion, deleteFlashcard, deleteQuestion, editFlashcard, editQuestion, editScheduleDay, fullOrder, moveQuestion, reorderFlashcards, reorderQuestions, setPinned } from "@/lib/kit-edits";
 import type { KitState } from "@/lib/kit-edits";
 
 // A small valid kit, the shape the pipeline produces, with two questions in different categories.
@@ -153,5 +153,16 @@ describe("the flashcard rules agree with core's", () => {
 
   it("pinning a flashcard", () => {
     expect(cards(setPinned(state(), "f2", true))).toEqual(cards(core.setPinned(state(), "f2", true)));
+  });
+});
+
+describe("the schedule rule agrees with core's", () => {
+  it("editing a day changes that day and marks the schedule as arranged by hand", () => {
+    const patch = { focus: "React only", minutes: 40, question_ids: ["q1"] };
+    const ours = editScheduleDay(state(), 1, patch);
+    const theirs = core.editScheduleDay(state(), 1, patch);
+    expect(ours.kit.schedule).toEqual(theirs.kit.schedule);
+    expect(ours.meta.scheduleEdited).toBe(true);
+    expect(theirs.meta.scheduleEdited).toBe(true);
   });
 });
