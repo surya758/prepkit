@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatRelative } from "@/lib/format";
+import { excerpt, formatRelative } from "@/lib/format";
 
 const now = new Date("2026-09-21T12:00:00Z");
 const ago = (ms: number) => new Date(now.getTime() - ms);
@@ -32,5 +32,24 @@ describe("formatRelative", () => {
 
   it("treats a clock that is slightly ahead as just now, not as the future", () => {
     expect(formatRelative(ago(-4_000), now)).toBe("just now");
+  });
+});
+
+describe("excerpt", () => {
+  it("leaves a short text alone, whitespace collapsed", () => {
+    expect(excerpt("  What does a\n useEffect cleanup run? ")).toBe("What does a useEffect cleanup run?");
+  });
+
+  it("cuts a long text at a word boundary with an ellipsis", () => {
+    const long = "Our platforms like MobiLytix Marketing Studio and CNPaaS deliver data-intensive, real-time dashboards to enterprise users. How do you approach building them?";
+    const short = excerpt(long);
+    expect(short.length).toBeLessThanOrEqual(91);
+    expect(short.endsWith("…")).toBe(true);
+    // The cut lands inside "real-time", so it backs up to the previous word and drops the comma.
+    expect(short).toBe("Our platforms like MobiLytix Marketing Studio and CNPaaS deliver data-intensive…");
+  });
+
+  it("does not leave a trailing comma before the ellipsis", () => {
+    expect(excerpt("one, two, three, four, five, six, seven, eight, nine, ten, eleven, twelve, thirteen, fourteen,", 60)).not.toMatch(/,…$/);
   });
 });
