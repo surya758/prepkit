@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, isUnauthenticated } from "./api";
 
@@ -41,10 +42,14 @@ export function useSignIn(mode: "login" | "register") {
 
 export function useSignOut() {
   const queryClient = useQueryClient();
+  const router = useRouter();
   return useMutation({
     mutationFn: () => api<void>("/auth/logout", { method: "POST" }),
-    // Whatever one account loaded must not be shown to the next person at this browser.
     onSuccess: () => {
+      // Go to the sign-in page first, so the signed-in frame is not left showing a placeholder
+      // while a redirect catches up; then forget everything, since whatever one account loaded
+      // must not be shown to the next person at this browser.
+      router.replace("/login");
       queryClient.clear();
       queryClient.setQueryData(ME, null);
     },

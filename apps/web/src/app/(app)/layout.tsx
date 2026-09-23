@@ -59,17 +59,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {me.data !== null ? (
         children
       ) : (
-        <main aria-busy="true" aria-label="Loading" className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-4 py-8 sm:px-8 sm:py-10">
-          <Skeleton className="h-10 w-48" />
-          <div className="flex flex-col gap-3">
-            {[0, 1, 2].map((row) => (
-              <div key={row} className="flex flex-col gap-3 rounded-xl border bg-card p-5">
-                <Skeleton className="h-5 w-2/3" />
-                <Skeleton className="h-4 w-1/3" />
-              </div>
-            ))}
-          </div>
-        </main>
+        // Nobody is signed in and the redirect to sign-in is on its way: the frame stays, the
+        // page is empty. A list-shaped placeholder here read as a page that never came.
+        <main aria-busy="true" aria-label="Going to the sign-in page" className="flex-1" />
       )}
     </div>
   );
