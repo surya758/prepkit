@@ -114,6 +114,13 @@ describe("editing questions over HTTP", () => {
     expect(deleted.body.kit.kit.schedule.days.flatMap((d: { question_ids: string[] }) => d.question_ids)).not.toContain("q1");
   });
 
+  it("marks an item untouched again after an undo, and refuses one the kit does not have", async () => {
+    const { browser, id } = await setup().signInWithKit();
+    await browser.patch(`/api/kits/${id}/questions/q1`).send({ prompt: "Changed" });
+    expect((await browser.put(`/api/kits/${id}/items/q1/edited`).send({ edited: false })).body.kit.meta.items.q1.edited).toBe(false);
+    expect((await browser.put(`/api/kits/${id}/items/q99/edited`).send({ edited: false })).status).toBe(404);
+  });
+
   it("pins and unpins", async () => {
     const { browser, id } = await setup().signInWithKit();
     expect((await browser.put(`/api/kits/${id}/items/q1/pin`).send({ pinned: true })).body.kit.meta.items.q1.pinned).toBe(true);
