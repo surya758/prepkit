@@ -31,10 +31,12 @@ interface Props {
   saving: boolean;
   onSave: (patch: Partial<FlashcardDraft>) => void;
   onCreate?: (draft: FlashcardDraft) => void;
+  /** Undo changes: the patch that puts the card back as it was when the editor opened. */
+  onUndo?: (patch: Partial<FlashcardDraft>) => void;
   onClose: () => void;
 }
 
-export function FlashcardEditor({ card, requirements, saving, onSave, onCreate, onClose }: Props) {
+export function FlashcardEditor({ card, requirements, saving, onSave, onCreate, onUndo, onClose }: Props) {
   const isNew = "isNew" in card;
   const [draft, setDraft] = useState<FlashcardDraft>(() => (isNew ? BLANK : draftOf(card)));
   const [saved, setSaved] = useState<FlashcardDraft>(() => (isNew ? BLANK : draftOf(card)));
@@ -71,7 +73,7 @@ export function FlashcardEditor({ card, requirements, saving, onSave, onCreate, 
 
   function undo() {
     clearTimeout(timer.current);
-    if (!same(saved, original)) onSave(patchOf(saved, original));
+    if (!same(saved, original)) onUndo?.(patchOf(saved, original));
     onClose();
   }
 

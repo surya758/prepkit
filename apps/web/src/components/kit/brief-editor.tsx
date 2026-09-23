@@ -14,11 +14,13 @@ interface Props {
   value: string;
   saving: boolean;
   onSave: (value: string) => void;
+  /** Undo changes: the text the field had when the editor opened. */
+  onUndo?: (value: string) => void;
   onClose: () => void;
 }
 
 /** One brief field, edited in place. Saves after a pause in typing, like the question editor; Done or Escape closes. */
-export function BriefFieldEditor({ id, label, value, saving, onSave, onClose }: Props) {
+export function BriefFieldEditor({ id, label, value, saving, onSave, onUndo, onClose }: Props) {
   // The editor owns the draft while open, so a refetch cannot replace text mid-sentence.
   const [draft, setDraft] = useState(value);
   const [saved, setSaved] = useState(value);
@@ -50,7 +52,7 @@ export function BriefFieldEditor({ id, label, value, saving, onSave, onClose }: 
 
   function undo() {
     clearTimeout(timer.current);
-    if (saved !== original) onSave(original);
+    if (saved !== original) onUndo?.(original);
     onClose();
   }
 

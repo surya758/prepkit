@@ -18,7 +18,8 @@ export function FlashcardsSection({ kitId, kit, meta }: { kitId: string; kit: Ki
   const requirements = numberRequirements(kit.role.requirements);
   const edits = useFlashcardEdits(kitId);
   // Which editor or dialog is open. The only state a view owns.
-  const [editing, setEditing] = useState<string | null>(null);
+  // Which card's editor is open, and whether it was untouched then (see questions-section).
+  const [editing, setEditing] = useState<{ id: string; wasUntouched: boolean } | null>(null);
   const [adding, setAdding] = useState(false);
   const [deleting, setDeleting] = useState<Flashcard | null>(null);
 
@@ -61,10 +62,10 @@ export function FlashcardsSection({ kitId, kit, meta }: { kitId: string; kit: Ki
         <>
           <SortableList items={kit.flashcards} describe={(f) => `the card “${f.front.slice(0, 60)}”`} onReorder={edits.reorder}>
             {(card, handle) =>
-              editing === card.id ? (
-                <FlashcardEditor card={card} requirements={requirements} saving={edits.isPending} onSave={(patch) => edits.edit(card.id, patch)} onClose={() => { setEditing(null); focusAfterRender(`[aria-label="Edit ${card.id}"]`); }} />
+              editing?.id === card.id ? (
+                <FlashcardEditor card={card} requirements={requirements} saving={edits.isPending} onSave={(patch) => edits.edit(card.id, patch)} onUndo={(patch) => edits.undo(card.id, patch, editing.wasUntouched)} onClose={() => { setEditing(null); focusAfterRender(`[aria-label="Edit ${card.id}"]`); }} />
               ) : (
-                <FlashcardCard card={card} meta={metaFor(meta, card.id)} requirements={requirements} handle={handle} onEdit={() => setEditing(card.id)} onPin={(pinned) => edits.pin(card.id, pinned)} onDelete={() => setDeleting(card)} />
+                <FlashcardCard card={card} meta={metaFor(meta, card.id)} requirements={requirements} handle={handle} onEdit={() => setEditing({ id: card.id, wasUntouched: !metaFor(meta, card.id).edited })} onPin={(pinned) => edits.pin(card.id, pinned)} onDelete={() => setDeleting(card)} />
               )
             }
           </SortableList>

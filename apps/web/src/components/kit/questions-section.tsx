@@ -36,7 +36,9 @@ export function QuestionsSection({
   const edits = useQuestionEdits(kitId);
   const regen = useRegenerate(kitId);
   // Which editor or dialog is open. The only state a view owns.
-  const [editing, setEditing] = useState<string | null>(null);
+  // Which question's editor is open, and whether it was untouched then: an undo clears the
+  // edited flag only in that case, since otherwise it goes back to an earlier edit of the user's.
+  const [editing, setEditing] = useState<{ id: string; wasUntouched: boolean } | null>(null);
   const [adding, setAdding] = useState<Question["category"] | null>(null);
   const [deleting, setDeleting] = useState<Question | null>(null);
 
@@ -167,12 +169,13 @@ export function QuestionsSection({
                         [ids[at], ids[other]] = [ids[other]!, ids[at]!];
                         edits.reorder(ids);
                       };
-                      return editing === question.id ? (
+                      return editing?.id === question.id ? (
                         <QuestionEditor
                           question={question}
                           requirements={requirements}
                           saving={edits.isPending}
                           onSave={(patch) => edits.edit(question.id, patch)}
+                          onUndo={(patch) => edits.undo(question.id, patch, editing.wasUntouched)}
                           onClose={() => {
                             setEditing(null);
                             focusAfterRender(`[aria-label="Edit ${question.id}"]`);
@@ -183,7 +186,7 @@ export function QuestionsSection({
                           question={question}
                           meta={metaFor(meta, question.id)}
                           requirements={requirements}
-                          onEdit={() => setEditing(question.id)}
+                          onEdit={() => setEditing({ id: question.id, wasUntouched: !metaFor(meta, question.id).edited })}
                           onPin={(pinned) => edits.pin(question.id, pinned)}
                           onDelete={() => setDeleting(question)}
                           handle={handle}

@@ -136,6 +136,11 @@ export function reorderFlashcards({ kit, meta }: KitState, orderedIds: string[])
 
 // --- the schedule ---------------------------------------------------------------------------
 
+/** After an undo, an item counts as untouched again. Brief fields are keyed "brief.<field>". */
+export function setEdited({ kit, meta }: KitState, id: string, edited: boolean): KitState {
+  return { kit, meta: withItem(meta, id, { edited }) };
+}
+
 /** A brief field rewritten by hand. Its meta is keyed "brief.<field>", so a regeneration keeps it. */
 export function editBrief({ kit, meta }: KitState, field: BriefField, value: string): KitState {
   return {

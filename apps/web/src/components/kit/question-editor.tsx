@@ -35,10 +35,12 @@ interface Props {
   saving: boolean;
   onSave: (patch: Partial<Draft>) => void;
   onCreate?: (draft: Draft) => void;
+  /** Undo changes: the patch that puts the question back as it was when the editor opened. */
+  onUndo?: (patch: Partial<Draft>) => void;
   onClose: () => void;
 }
 
-export function QuestionEditor({ question, requirements, saving, onSave, onCreate, onClose }: Props) {
+export function QuestionEditor({ question, requirements, saving, onSave, onCreate, onUndo, onClose }: Props) {
   const isNew = "isNew" in question;
   // The editor owns the draft while open. What the server holds is only read again on close,
   // so a refetch cannot replace text mid-sentence.
@@ -81,7 +83,7 @@ export function QuestionEditor({ question, requirements, saving, onSave, onCreat
 
   function undo() {
     clearTimeout(timer.current);
-    if (!same(saved, original)) onSave(patchOf(saved, original));
+    if (!same(saved, original)) onUndo?.(patchOf(saved, original));
     onClose();
   }
 

@@ -43,7 +43,7 @@ export function BriefSection({ kitId, kit, meta }: { kitId: string; kit: Kit; me
   const running = regen.isRunning(target);
   const refusal = regen.refusal(target);
   // Which field's editor is open. The only state this view owns.
-  const [editing, setEditing] = useState<BriefField | null>(null);
+  const [editing, setEditing] = useState<{ field: BriefField; wasUntouched: boolean } | null>(null);
   // A brief is only ever written from pages that were read, so no sources means no research.
   // The pipeline then fills the brief with its own plain statement of that, which is shown as
   // it is: there is one wording of "we could not find out", and it is the pipeline's.
@@ -80,7 +80,7 @@ export function BriefSection({ kitId, kit, meta }: { kitId: string; kit: Kit; me
         <div className={researched ? "flex flex-col gap-3" : "flex flex-col gap-3 rounded-xl border border-dashed p-5"}>
           {FIELDS.map(({ field, label }) => {
             const value = brief[field];
-            if (editing === field) {
+            if (editing?.field === field) {
               return (
                 <BriefFieldEditor
                   key={field}
@@ -89,6 +89,7 @@ export function BriefSection({ kitId, kit, meta }: { kitId: string; kit: Kit; me
                   value={value}
                   saving={edits.isPending}
                   onSave={(next) => edits.edit(field, next)}
+                  onUndo={(next) => edits.undo(field, next, editing.wasUntouched)}
                   onClose={() => setEditing(null)}
                 />
               );
@@ -99,7 +100,7 @@ export function BriefSection({ kitId, kit, meta }: { kitId: string; kit: Kit; me
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold text-muted-foreground">{label}</span>
                   <ItemBadges item={metaFor(meta, `brief.${field}`)} />
-                  <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setEditing(field)} aria-label={`Edit the ${label.toLowerCase()}`}>
+                  <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setEditing({ field, wasUntouched: !metaFor(meta, `brief.${field}`).edited })} aria-label={`Edit the ${label.toLowerCase()}`}>
                     <Pencil aria-hidden="true" />
                     Edit
                   </Button>

@@ -26,6 +26,17 @@ export function useFlashcardEdits(kitId: string) {
     [mutate],
   );
 
+  // Undo changes, as for questions: save the original back, then clear the edited flag if the
+  // card was untouched when the editor opened.
+  const undo = useCallback(
+    (id: string, patch: Partial<FlashcardDraft>, wasUntouched: boolean) =>
+      mutate(
+        { method: "PATCH", path: `/flashcards/${id}`, body: patch, optimistic: (s) => edits.editFlashcard(s, id, patch), failed: "Your changes to this flashcard could not be undone" },
+        { onSuccess: () => { if (wasUntouched) mutate({ method: "PUT", path: `/items/${id}/edited`, body: { edited: false }, optimistic: (s) => edits.setEdited(s, id, false), failed: "This flashcard is still marked as edited" }); } },
+      ),
+    [mutate],
+  );
+
   const pin = useCallback(
     (id: string, pinned: boolean) =>
       mutate({ method: "PUT", path: `/items/${id}/pin`, body: { pinned }, optimistic: (s) => edits.setPinned(s, id, pinned), failed: pinned ? "This flashcard could not be pinned" : "This flashcard could not be unpinned" }),
@@ -38,5 +49,5 @@ export function useFlashcardEdits(kitId: string) {
     [mutate],
   );
 
-  return useMemo(() => ({ edit, add, remove, pin, reorder, isPending }), [edit, add, remove, pin, reorder, isPending]);
+  return useMemo(() => ({ edit, undo, add, remove, pin, reorder, isPending }), [edit, undo, add, remove, pin, reorder, isPending]);
 }
