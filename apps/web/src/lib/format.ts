@@ -15,3 +15,15 @@ export function formatRelative(date: Date | string, now: Date = new Date()): str
   const [unit, size] = UNITS.find(([, ms]) => elapsed >= ms)!;
   return relative.format(-Math.floor(elapsed / size), unit);
 }
+
+/**
+ * The start of a text, cut at a word boundary, for a confirmation that names what it is about:
+ * enough to recognise a question, not the whole of it.
+ */
+export function excerpt(text: string, max = 90): string {
+  const clean = text.trim().replace(/\s+/g, " ");
+  if (clean.length <= max) return clean;
+  const cut = clean.slice(0, max);
+  const atWord = cut.lastIndexOf(" ");
+  return `${(atWord > max / 2 ? cut.slice(0, atWord) : cut).replace(/[,;:.]$/, "")}…`;
+}

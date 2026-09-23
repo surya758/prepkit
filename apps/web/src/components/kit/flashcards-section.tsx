@@ -7,6 +7,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { focusAfterRender } from "@/components/focus-after-render";
 import { Button } from "@/components/ui/button";
 import { useFlashcardEdits } from "@/features/flashcards";
+import { excerpt } from "@/lib/format";
 import { metaFor } from "@/lib/item-meta";
 import { FlashcardCard } from "./flashcard-card";
 import { FlashcardEditor } from "./flashcard-editor";
@@ -26,7 +27,7 @@ export function FlashcardsSection({ kitId, kit, meta }: { kitId: string; kit: Ki
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         title="Delete this flashcard?"
-        description={deleting ? `“${deleting.front}” will be removed from the kit, along with any practice progress on it. This cannot be undone.` : ""}
+        description={deleting ? `“${excerpt(deleting.front)}” will be removed from the kit, along with any practice progress on it. This cannot be undone.` : ""}
         confirmLabel="Delete flashcard"
         pending={edits.isPending && deleting !== null}
         onConfirm={() =>

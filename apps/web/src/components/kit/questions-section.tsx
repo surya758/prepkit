@@ -8,6 +8,7 @@ import { focusAfterRender } from "@/components/focus-after-render";
 import { Button } from "@/components/ui/button";
 import { useQuestionEdits } from "@/features/questions";
 import { useRegenerate } from "@/features/regenerate";
+import { excerpt } from "@/lib/format";
 import { isKept, metaFor } from "@/lib/item-meta";
 import { QuestionCard } from "./question-card";
 import { QuestionEditor } from "./question-editor";
@@ -46,7 +47,7 @@ export function QuestionsSection({
         title="Delete this question?"
         description={
           deleting
-            ? `“${deleting.prompt}” will be removed from the kit and from your schedule. This cannot be undone.`
+            ? `“${excerpt(deleting.prompt)}” will be removed from the kit and from your schedule. This cannot be undone.`
             : ""
         }
         confirmLabel="Delete question"
