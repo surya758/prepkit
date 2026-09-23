@@ -150,9 +150,6 @@ export function ScheduleSection({
                     <ul className="flex flex-col gap-1">
                       {day.question_ids.map((id) => (
                         <li key={id} className="flex gap-2 text-sm">
-                          <span className="shrink-0 font-mono text-xs text-muted-foreground">
-                            {id}
-                          </span>
                           <span className="text-muted-foreground">
                             {byId.get(id)?.prompt ??
                               "(a question that has been deleted)"}

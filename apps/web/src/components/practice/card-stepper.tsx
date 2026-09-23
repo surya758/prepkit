@@ -72,9 +72,10 @@ export function CardStepper({ session, cards, requirements, onReveal, onRate, on
           className="flex min-h-72 flex-col gap-5 rounded-2xl border bg-card p-6 sm:p-8"
         >
           <div className="flex flex-wrap gap-1.5">
+            {/* The requirement in its own words: what this card is for, not its id. */}
             {card.requirement_ids.map((rid) => (
-              <span key={rid} className="inline-flex h-5.5 items-center rounded-md border px-1.5 font-mono text-xs text-muted-foreground" title={requirements.get(rid)?.text}>
-                {rid}
+              <span key={rid} className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs text-muted-foreground">
+                {requirements.get(rid)?.text ?? rid}
               </span>
             ))}
             {card.requirement_ids.length === 0 && <span className="text-xs text-muted-foreground">About the company</span>}

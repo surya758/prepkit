@@ -29,7 +29,7 @@ export function FlashcardCard({ card, meta, requirements, handle, onEdit, onPin,
               {id}
             </span>
           ))}
-          <span className="ml-auto font-mono text-xs text-muted-foreground">{card.id}</span>
+          <span className="ml-auto" />
           <Button variant="ghost" size="icon-sm" onClick={() => onPin(!meta.pinned)} aria-pressed={meta.pinned} aria-label={meta.pinned ? `Unpin ${card.id}` : `Pin ${card.id}`} title={meta.pinned ? "Unpin" : "Pin, so a regeneration keeps it"}>
             {meta.pinned ? <PinOff aria-hidden="true" /> : <Pin aria-hidden="true" />}
           </Button>

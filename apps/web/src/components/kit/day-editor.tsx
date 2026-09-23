@@ -81,17 +81,14 @@ export function DayEditor({ day, questions, saving, onSave, onClose }: Props) {
       </div>
       <fieldset className="flex flex-col gap-1.5">
         <legend className="text-sm font-medium">Questions for this day</legend>
-        <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto rounded-md border p-2">
+        <ul className="flex max-h-96 flex-col gap-1 overflow-y-auto rounded-md border p-2 pb-3">
           {questions.map((q) => {
             const on = draft.question_ids.includes(q.id);
             return (
               <li key={q.id}>
                 <label className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
                   <input type="checkbox" checked={on} onChange={() => toggle(q.id)} className="mt-1 accent-primary" />
-                  <span className={on ? "" : "text-muted-foreground"}>
-                    <span className="mr-1.5 font-mono text-xs text-muted-foreground">{q.id}</span>
-                    {q.prompt}
-                  </span>
+                  <span className={on ? "" : "text-muted-foreground"}>{q.prompt}</span>
                 </label>
               </li>
             );

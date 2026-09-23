@@ -39,7 +39,6 @@ export function CoveragePanel({ progress, requirements }: Props) {
             const look = STATUS[r.status];
             return (
               <li key={r.requirement_id} className="flex items-start gap-3 border-t py-2.5 first:border-t-0">
-                <span className="w-6 shrink-0 pt-0.5 font-mono text-xs text-muted-foreground">{r.requirement_id}</span>
                 <span className="min-w-0 flex-1 text-sm">
                   {byId.get(r.requirement_id)?.text ?? r.requirement_id}
                   {r.card_ids.length > 0 && (

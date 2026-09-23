@@ -98,9 +98,7 @@ export function QuestionCard({
             </span>
           ))}
           <Difficulty level={question.difficulty} />
-          <span className="ml-auto font-mono text-xs text-muted-foreground">
-            {question.id}
-          </span>
+          <span className="ml-auto" />
           {onPin && (
             <Button
               variant="ghost"
