@@ -45,6 +45,10 @@ export function FlashcardEditor({ card, requirements, saving, onSave, onCreate, 
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const frontRef = useRef<HTMLTextAreaElement>(null);
   const empty = draft.front.trim() === "" || draft.back.trim() === "";
+  // As in question-editor: a field is wrong only once it was left empty or a submit was tried.
+  const [touched, setTouched] = useState({ front: false, back: false });
+  const touch = (field: "front" | "back") => setTouched((t) => (t[field] ? t : { ...t, [field]: true }));
+  const complain = touched.front || touched.back;
 
   useEffect(() => {
     frontRef.current?.focus();
@@ -63,7 +67,7 @@ export function FlashcardEditor({ card, requirements, saving, onSave, onCreate, 
   function done() {
     clearTimeout(timer.current);
     if (isNew) {
-      if (empty) return;
+      if (empty) return void setTouched({ front: true, back: true });
       onCreate?.(draft);
     } else if (!empty && !same(draft, saved)) {
       onSave(patchOf(saved, draft));
@@ -92,11 +96,11 @@ export function FlashcardEditor({ card, requirements, saving, onSave, onCreate, 
     >
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={`${card.id}-front`}>Front</Label>
-        <Textarea ref={frontRef} id={`${card.id}-front`} rows={2} value={draft.front} onChange={(e) => setDraft({ ...draft, front: e.target.value })} aria-invalid={draft.front.trim() === ""} />
+        <Textarea ref={frontRef} id={`${card.id}-front`} rows={2} value={draft.front} onChange={(e) => setDraft({ ...draft, front: e.target.value })} onBlur={() => touch("front")} aria-invalid={touched.front && draft.front.trim() === ""} />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={`${card.id}-back`}>Back</Label>
-        <Textarea id={`${card.id}-back`} rows={3} value={draft.back} onChange={(e) => setDraft({ ...draft, back: e.target.value })} aria-invalid={draft.back.trim() === ""} />
+        <Textarea id={`${card.id}-back`} rows={3} value={draft.back} onChange={(e) => setDraft({ ...draft, back: e.target.value })} onBlur={() => touch("back")} aria-invalid={touched.back && draft.back.trim() === ""} />
       </div>
       <fieldset className="flex flex-col gap-1.5">
         <legend className="mb-2 text-sm font-medium">Covers</legend>
@@ -109,7 +113,7 @@ export function FlashcardEditor({ card, requirements, saving, onSave, onCreate, 
       </fieldset>
       <div className="flex items-center justify-between gap-3">
         <p role="status" className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          {empty ? "A front and a back are both needed." : isNew ? "Added when you press Add flashcard" : saving ? <><LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Saving</> : same(draft, saved) ? <><Check className="size-3.5" aria-hidden="true" /> Saved</> : "Saves as you type"}
+          {empty && complain ? "A front and a back are both needed." : isNew ? "Added when you press Add flashcard" : saving ? <><LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Saving</> : same(draft, saved) ? <><Check className="size-3.5" aria-hidden="true" /> Saved</> : "Saves as you type"}
         </p>
         <div className="flex gap-2">
           {isNew ? (

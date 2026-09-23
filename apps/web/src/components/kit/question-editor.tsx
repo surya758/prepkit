@@ -53,6 +53,11 @@ export function QuestionEditor({ question, requirements, saving, onSave, onCreat
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const empty = draft.prompt.trim() === "" || draft.answer_outline.trim() === "";
+  // An empty field is not wrong until the user has left it empty or tried to finish: a new
+  // question opens with both fields blank and neither deserves a red border yet.
+  const [touched, setTouched] = useState({ prompt: false, outline: false });
+  const touch = (field: "prompt" | "outline") => setTouched((t) => (t[field] ? t : { ...t, [field]: true }));
+  const complain = touched.prompt || touched.outline;
 
   useEffect(() => {
     promptRef.current?.focus();
@@ -73,7 +78,7 @@ export function QuestionEditor({ question, requirements, saving, onSave, onCreat
   function done() {
     clearTimeout(timer.current);
     if (isNew) {
-      if (empty) return; // nothing worth creating; the status line says what is missing
+      if (empty) return void setTouched({ prompt: true, outline: true }); // the status line says what is missing
       onCreate?.(draft);
     } else if (!empty && !same(draft, saved)) {
       onSave(patchOf(saved, draft));
@@ -104,11 +109,11 @@ export function QuestionEditor({ question, requirements, saving, onSave, onCreat
     >
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={`${question.id}-prompt`}>Question</Label>
-        <Textarea ref={promptRef} id={`${question.id}-prompt`} rows={2} value={draft.prompt} onChange={(e) => setDraft({ ...draft, prompt: e.target.value })} aria-invalid={draft.prompt.trim() === ""} />
+        <Textarea ref={promptRef} id={`${question.id}-prompt`} rows={2} value={draft.prompt} onChange={(e) => setDraft({ ...draft, prompt: e.target.value })} onBlur={() => touch("prompt")} aria-invalid={touched.prompt && draft.prompt.trim() === ""} />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={`${question.id}-outline`}>Answer outline</Label>
-        <Textarea id={`${question.id}-outline`} rows={3} value={draft.answer_outline} onChange={(e) => setDraft({ ...draft, answer_outline: e.target.value })} aria-invalid={draft.answer_outline.trim() === ""} />
+        <Textarea id={`${question.id}-outline`} rows={3} value={draft.answer_outline} onChange={(e) => setDraft({ ...draft, answer_outline: e.target.value })} onBlur={() => touch("outline")} aria-invalid={touched.outline && draft.answer_outline.trim() === ""} />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <fieldset className="flex flex-col gap-1.5">
@@ -139,7 +144,7 @@ export function QuestionEditor({ question, requirements, saving, onSave, onCreat
       </div>
       <div className="flex items-center justify-between gap-3">
         <p role="status" className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          {empty ? "A question and an outline are both needed." : isNew ? "Added when you press Add question" : saving ? <><LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Saving</> : same(draft, saved) ? <><Check className="size-3.5" aria-hidden="true" /> Saved</> : "Saves as you type"}
+          {empty && complain ? "A question and an outline are both needed." : isNew ? "Added when you press Add question" : saving ? <><LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Saving</> : same(draft, saved) ? <><Check className="size-3.5" aria-hidden="true" /> Saved</> : "Saves as you type"}
         </p>
         <div className="flex gap-2">
           {isNew ? (

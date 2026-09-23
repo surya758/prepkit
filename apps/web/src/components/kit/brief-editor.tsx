@@ -29,6 +29,9 @@ export function BriefFieldEditor({ id, label, value, saving, onSave, onUndo, onC
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const field = useRef<HTMLTextAreaElement>(null);
   const empty = draft.trim() === "";
+  // An empty field is wrong only once it has been left empty: a field that was blank to begin
+  // with opens without a red border.
+  const [touched, setTouched] = useState(false);
 
   useEffect(() => {
     field.current?.focus();
@@ -65,11 +68,11 @@ export function BriefFieldEditor({ id, label, value, saving, onSave, onUndo, onC
     >
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={id}>{label}</Label>
-        <Textarea ref={field} id={id} rows={4} value={draft} onChange={(e) => setDraft(e.target.value)} aria-invalid={empty} />
+        <Textarea ref={field} id={id} rows={4} value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={() => setTouched(true)} aria-invalid={touched && empty} />
       </div>
       <div className="flex items-center justify-between gap-3">
         <p role="status" className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          {empty ? "This cannot be empty." : saving ? <><LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Saving</> : draft === saved ? <><Check className="size-3.5" aria-hidden="true" /> Saved</> : "Saves as you type"}
+          {empty && touched ? "This cannot be empty." : saving ? <><LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Saving</> : draft === saved ? <><Check className="size-3.5" aria-hidden="true" /> Saved</> : "Saves as you type"}
         </p>
         <div className="flex gap-2">
           {draft !== original && (
