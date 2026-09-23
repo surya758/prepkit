@@ -26,14 +26,12 @@ export function useFlashcardEdits(kitId: string) {
     [mutate],
   );
 
-  // Undo changes, as for questions: save the original back, then clear the edited flag if the
-  // card was untouched when the editor opened.
+  // Undo changes, as for questions: one request, untouched again if it was so when the editor opened.
   const undo = useCallback(
     (id: string, patch: Partial<FlashcardDraft>, wasUntouched: boolean) =>
-      mutate(
-        { method: "PATCH", path: `/flashcards/${id}`, body: patch, optimistic: (s) => edits.editFlashcard(s, id, patch), failed: "Your changes to this flashcard could not be undone" },
-        { onSuccess: () => { if (wasUntouched) mutate({ method: "PUT", path: `/items/${id}/edited`, body: { edited: false }, optimistic: (s) => edits.setEdited(s, id, false), failed: "This flashcard is still marked as edited" }); } },
-      ),
+      wasUntouched
+        ? mutate({ method: "POST", path: `/flashcards/${id}/revert`, body: patch, optimistic: (s) => edits.setEdited(edits.editFlashcard(s, id, patch), id, false), failed: "Your changes to this flashcard could not be undone" })
+        : mutate({ method: "PATCH", path: `/flashcards/${id}`, body: patch, optimistic: (s) => edits.editFlashcard(s, id, patch), failed: "Your changes to this flashcard could not be undone" }),
     [mutate],
   );
 

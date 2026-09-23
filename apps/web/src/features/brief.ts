@@ -23,14 +23,12 @@ export function useBriefEdits(kitId: string) {
     [mutate],
   );
 
-  // Undo changes: the original text is saved back, then the field counts as untouched again if
-  // it was untouched when the editor opened.
+  // Undo changes: one request, untouched again if the field was so when the editor opened.
   const undo = useCallback(
     (field: BriefField, value: string, wasUntouched: boolean) =>
-      mutate(
-        { method: "PATCH", path: "/brief", body: { field, value }, optimistic: (s) => edits.editBrief(s, field, value), failed: "Your changes to the brief could not be undone" },
-        { onSuccess: () => { if (wasUntouched) mutate({ method: "PUT", path: `/items/brief.${field}/edited`, body: { edited: false }, optimistic: (s) => edits.setEdited(s, `brief.${field}`, false), failed: "This field is still marked as edited" }); } },
-      ),
+      wasUntouched
+        ? mutate({ method: "POST", path: "/brief/revert", body: { field, value }, optimistic: (s) => edits.setEdited(edits.editBrief(s, field, value), `brief.${field}`, false), failed: "Your changes to the brief could not be undone" })
+        : mutate({ method: "PATCH", path: "/brief", body: { field, value }, optimistic: (s) => edits.editBrief(s, field, value), failed: "Your changes to the brief could not be undone" }),
     [mutate],
   );
 

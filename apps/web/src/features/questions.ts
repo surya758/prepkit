@@ -50,32 +50,26 @@ export function useQuestionEdits(kitId: string) {
     [mutate],
   );
 
-  // Undo changes: the original content is saved back, and if the question was untouched when
-  // the editor opened it counts as untouched again, once the save has landed (in that order,
-  // since the save itself marks it edited).
+  // Undo changes: the original content back. If the question was untouched when the editor
+  // opened it counts as untouched again, in the same request, so the badge is right at once;
+  // otherwise it goes back to the user's earlier edit and stays marked.
   const undo = useCallback(
     (id: string, patch: Partial<QuestionDraft>, wasUntouched: boolean) =>
-      mutate(
-        {
-          method: "PATCH",
-          path: `/questions/${id}`,
-          body: patch,
-          optimistic: (s) => edits.editQuestion(s, id, patch),
-          failed: "Your changes to this question could not be undone",
-        },
-        {
-          onSuccess: () => {
-            if (wasUntouched)
-              mutate({
-                method: "PUT",
-                path: `/items/${id}/edited`,
-                body: { edited: false },
-                optimistic: (s) => edits.setEdited(s, id, false),
-                failed: "This question is still marked as edited",
-              });
-          },
-        },
-      ),
+      wasUntouched
+        ? mutate({
+            method: "POST",
+            path: `/questions/${id}/revert`,
+            body: patch,
+            optimistic: (s) => edits.setEdited(edits.editQuestion(s, id, patch), id, false),
+            failed: "Your changes to this question could not be undone",
+          })
+        : mutate({
+            method: "PATCH",
+            path: `/questions/${id}`,
+            body: patch,
+            optimistic: (s) => edits.editQuestion(s, id, patch),
+            failed: "Your changes to this question could not be undone",
+          }),
     [mutate],
   );
 
