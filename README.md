@@ -386,6 +386,8 @@ carries the badge the rule implies, each category says what Regenerate *will do*
 pressed ("replaces the 3 generated questions and keeps the 4 you edited, wrote or pinned"), edits
 save as you type, reordering is by drag, keyboard or a per-card menu, and every change is applied
 at once and sent as one small request; if it fails the page is put back and a toast says why.
+*Undo changes* puts an item back as it was when its editor opened, in one request; if it was
+untouched then, it counts as untouched again, so a regeneration may replace it.
 
 ## Long-running generation
 
@@ -448,8 +450,9 @@ kit order, then lowest confidence, then reviewed longest ago. Interval scheduler
 this due" in days and weeks, and the interview is in a few days; "what am I worst at right now" is
 the useful question, and the order stays explainable. Coverage is reported per requirement
 (`no_cards`, `not_started`, `weak`, `in_progress`, `confident`), because "9 of 15 cards" says less
-than "nothing on system design yet". Progress is always computed against the kit as it is now, so
-a card deleted in the builder drops out.
+than "nothing on system design yet". Every requirement gets at least one card (the deck's cap
+grows with the requirement count), so each one can be practised. Progress is always computed
+against the kit as it is now, so a card deleted in the builder drops out.
 
 ## Creative feature: adaptive re-plan
 
