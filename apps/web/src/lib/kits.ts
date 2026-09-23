@@ -136,19 +136,17 @@ export function useRetryKit(id: string) {
 }
 
 /**
- * `onDeleted` and `onFailed` are given here rather than to mutate(). Deleting removes the kit
- * from the cache, the page reacts by unmounting the button that asked for it, and TanStack
- * Query does not run a mutate() call's own callbacks once its component is gone — the delete
- * succeeded and the page never left. Callbacks given to useMutation always run.
+ * `onDeleted` and `onFailed` are given here rather than to mutate(): deleting unmounts the button
+ * that asked for it, and TanStack Query drops a mutate() call's own callbacks once its component
+ * is gone. Callbacks given to useMutation always run.
  */
 export function useDeleteKit(id: string, { onDeleted, onFailed }: { onDeleted: () => void; onFailed: () => void }) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => api<void>(`/kits/${id}`, { method: "DELETE" }),
     onSuccess: () => {
-      // The list the user lands on is the cached one, so the kit comes out of it now rather
-      // than when the refetch answers: otherwise it is on the page for a round trip after
-      // being deleted. Then leave, forget the kit, and let the list re-ask to be sure.
+      // The list the user lands on is the cached one, so the kit comes out of it now rather than
+      // when the refetch answers: otherwise it stays on the page for a round trip after deletion.
       queryClient.setQueryData<KitSummary[]>(["kits"], (kits) => kits?.filter((kit) => kit.id !== id));
       onDeleted();
       queryClient.removeQueries({ queryKey: ["kit", id] });

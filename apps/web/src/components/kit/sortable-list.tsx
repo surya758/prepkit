@@ -104,8 +104,7 @@ export function SortableList<T extends { id: string }>({
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
         <ul className="flex flex-col gap-3">
           {/* An item that arrives after the list is on screen — a regenerated question — fades
-              in; items already there, the kept ones, do not move. No layout animation: dnd-kit
-              positions items with its own transforms and the two would fight. */}
+              in; items already there, the kept ones, do not move. */}
           <AnimatePresence initial={false}>
             {items.map((item) => (
               <SortableItem key={item.id} id={item.id}>
@@ -155,7 +154,6 @@ function SortableItem({
   );
 }
 
-/** The grip a card renders where it wants it. */
 export function DragHandle({
   handle: { setRef, attributes, listeners, dragging },
   label,

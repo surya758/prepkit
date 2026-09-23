@@ -12,7 +12,7 @@ export const MAX_BODY_BYTES = "1mb";
 
 export interface AppDependencies {
   config: Config;
-  /** Feature routers, mounted under /api. Added as each part of the API is built. */
+  /** Feature routers, mounted under /api. */
   routers?: Router[];
   logError?: (message: string, error: unknown) => void;
 }

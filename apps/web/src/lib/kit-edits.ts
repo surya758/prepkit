@@ -96,9 +96,8 @@ export const fullOrder = (state: KitState, orderedIds: string[]): string[] => re
 
 /**
  * Changing a question's category is an edit, nothing more: the question keeps its place in the
- * kit's list, exactly as core's editQuestion leaves it, and so appears in its new category at
- * whatever position that place gives it. Moving it to the end as well would be a second change
- * the server does not make, and the page would show one order and then the other.
+ * kit's list, exactly as core's editQuestion leaves it. Moving it to the end as well would be a
+ * change the server does not make, and the page would show one order and then the other.
  */
 export function moveQuestion(state: KitState, id: string, category: Question["category"]): KitState {
   return editQuestion(state, id, { category });
@@ -133,8 +132,6 @@ export function reorderFlashcards({ kit, meta }: KitState, orderedIds: string[])
   const byId = new Map(kit.flashcards.map((f) => [f.id, f]));
   return { kit: { ...kit, flashcards: orderedIds.map((id) => byId.get(id)!) }, meta };
 }
-
-// --- the schedule ---------------------------------------------------------------------------
 
 /** After an undo, an item counts as untouched again. Brief fields are keyed "brief.<field>". */
 export function setEdited({ kit, meta }: KitState, id: string, edited: boolean): KitState {

@@ -29,7 +29,6 @@ export function createPracticeRouter({ practice, requireUser }: PracticeRouterDe
     res.json({ practice: await practice.rate(currentUser(req).id, req.params.id!, req.params.cardId!, confidence) });
   });
 
-  /** Start over. */
   router.delete("/kits/:id/practice", async (req, res) => {
     res.json({ practice: await practice.reset(currentUser(req).id, req.params.id!) });
   });

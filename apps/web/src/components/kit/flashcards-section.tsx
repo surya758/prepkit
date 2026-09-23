@@ -17,8 +17,8 @@ import { SortableList } from "./sortable-list";
 export function FlashcardsSection({ kitId, kit, meta }: { kitId: string; kit: Kit; meta: KitMeta | null }) {
   const requirements = numberRequirements(kit.role.requirements);
   const edits = useFlashcardEdits(kitId);
-  // Which editor or dialog is open. The only state a view owns.
-  // Which card's editor is open, and whether it was untouched then (see questions-section).
+  // Which editor or dialog is open — the only state a view owns. For the editor, also whether the
+  // card was untouched then (see questions-section).
   const [editing, setEditing] = useState<{ id: string; wasUntouched: boolean } | null>(null);
   const [adding, setAdding] = useState(false);
   const [deleting, setDeleting] = useState<Flashcard | null>(null);

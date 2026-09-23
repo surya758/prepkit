@@ -10,7 +10,8 @@ import type { FlashcardDraft } from "@/lib/kit-edits";
 import type { NumberedRequirement } from "@/lib/requirements";
 import { RequirementChip } from "./requirement-chip";
 
-// The flashcard twin of question-editor: a front, a back and the requirements it covers.
+// The flashcard twin of question-editor; the reasoning behind the draft/saved/original states
+// and the touched flags is written out there.
 
 const AUTOSAVE_MS = 500;
 const BLANK: FlashcardDraft = { front: "", back: "", requirement_ids: [] };

@@ -32,10 +32,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   // The page renders at once, with its own loading state, while the user is checked: a signed-out
-  // visitor's page request answers 401, which marks them signed out (providers.tsx) and lands
-  // here as me.data === null, and only then is the page replaced by a placeholder for the
-  // moment before the redirect. Waiting for the check first showed two skeletons in a row and
-  // added a round trip to every load.
+  // visitor's page request answers 401, which marks them signed out (providers.tsx) and lands here
+  // as me.data === null. Waiting for the check first would mean two skeletons and an extra round trip.
   return (
     <div className="flex flex-1 flex-col">
       <header className="flex items-center justify-between gap-4 border-b px-4 py-3 sm:px-8">
@@ -60,7 +58,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         children
       ) : (
         // Nobody is signed in and the redirect to sign-in is on its way: the frame stays, the
-        // page is empty. A list-shaped placeholder here read as a page that never came.
+        // page is empty. A list-shaped placeholder here would read as a page that never came.
         <main aria-busy="true" aria-label="Going to the sign-in page" className="flex-1" />
       )}
     </div>

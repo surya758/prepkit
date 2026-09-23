@@ -7,13 +7,9 @@ import { api } from "@/lib/api";
 import type { KitState } from "@/lib/kit-edits";
 import type { KitDetail } from "@/lib/kits";
 
-// Every builder change goes through here. The shape is the same for all of them:
-//
-//   1. apply the change to the cached kit at once, so the page answers the keystroke
-//   2. send one small request describing only that change
-//   3. on success, take the server's answer as the truth — it recomputed coverage and the
-//      schedule, and may have merged changes landing from elsewhere
-//   4. on failure, put the cached kit back as it was and say so
+// Every builder change goes through here: applied to the cached kit at once so the page answers
+// the keystroke, then confirmed by the server's answer, which is taken as the truth because it
+// recomputed coverage and the schedule and may have merged changes landing from elsewhere.
 //
 // Only the change is sent, never the whole kit, so a slow save cannot overwrite something
 // edited after it was sent; the server applies each change to the latest kit it has.

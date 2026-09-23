@@ -42,7 +42,6 @@ export function createPracticeService({ kits, practice, now = () => new Date() }
       return view(userId, kitId);
     },
 
-    /** Forget every rating for this kit and start again. */
     async reset(userId: string, kitId: string): Promise<PracticeView> {
       await findReadyKit(kits, userId, kitId, "practised");
       await practice.deleteForKit(userId, kitId);

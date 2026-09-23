@@ -41,8 +41,7 @@ export interface ModelDefinition {
 }
 
 /**
- * Tried in this order. All three were checked live against the same job descriptions and
- * extracted the stated requirements, with must/nice correct and nothing invented.
+ * Tried in this order.
  *
  * Free-tier limits at the time of writing:
  *   gemini-3.5-flash-lite  15 req/min  250,000 tokens/min    500 req/day
@@ -66,10 +65,9 @@ export const MODEL_CHAIN: ModelDefinition[] = [
 const ATTEMPTS_WITH_BACKUP = 2;
 const ATTEMPTS_LAST_IN_CHAIN = 4;
 
-// The same reasoning applied to slowness. A healthy reply takes 2 to 8 seconds, and a long one
-// close to 20. Waiting the full default for a model that is merely slow, and then waiting again,
-// once used 120 of a kit's 150 seconds and left no time for flashcards. A model with a backup
-// gets this long, once; the chain then rests it and the rest of the kit goes to the next model.
+// The same reasoning applied to slowness. A healthy reply takes 2 to 8 seconds, a long one close
+// to 20; retrying a merely slow model can eat most of a kit's 150-second budget. A model with a
+// backup gets this long, once; the chain then rests it and the rest of the kit goes to the next.
 export const TIMEOUT_WITH_BACKUP_MS = 25_000;
 
 export interface ChainFromEnv {

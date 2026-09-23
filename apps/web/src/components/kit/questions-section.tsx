@@ -35,9 +35,9 @@ export function QuestionsSection({
   const requirements = numberRequirements(kit.role.requirements);
   const edits = useQuestionEdits(kitId);
   const regen = useRegenerate(kitId);
-  // Which editor or dialog is open. The only state a view owns.
-  // Which question's editor is open, and whether it was untouched then: an undo clears the
-  // edited flag only in that case, since otherwise it goes back to an earlier edit of the user's.
+  // Which editor or dialog is open — the only state a view owns. For the editor, also whether the
+  // question was untouched then: an undo clears the edited flag only in that case, since otherwise
+  // it would go back to an earlier edit of the user's.
   const [editing, setEditing] = useState<{ id: string; wasUntouched: boolean } | null>(null);
   const [adding, setAdding] = useState<Question["category"] | null>(null);
   const [deleting, setDeleting] = useState<Question | null>(null);

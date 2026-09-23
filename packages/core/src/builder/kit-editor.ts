@@ -340,13 +340,9 @@ export function mergeRegeneratedBrief(input: EditableKit, fresh: Kit["company_br
 }
 
 /**
- * Regenerating the schedule is the one regeneration that does discard the user's work — it is
- * what the button says — so the interface confirms first. It can also change the number of
- * days, which is how a kit is re-planned for a different interview date without generating
- * anything again.
- */
-/**
- * A full recompute, the one explicit discard of a hand-arranged schedule. With `emphasis`
+ * The one regeneration that does discard the user's work — it is what the button says — so the
+ * interface confirms first. It can also change the number of days, which is how a kit is
+ * re-planned for a different interview date without generating anything again. With `emphasis`
  * (from practice, see scheduling/adaptive.ts) the recompute leans toward weak requirements.
  */
 export function regenerateSchedule(input: EditableKit, days?: number, emphasis?: Emphasis): EditableKit {
