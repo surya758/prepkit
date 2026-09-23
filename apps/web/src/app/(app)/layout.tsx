@@ -6,7 +6,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Wordmark } from "@/components/wordmark";
-import { useMe, useSignOut } from "@/lib/auth";
+import { signedOutOnPurpose, useMe, useSignOut } from "@/lib/auth";
 
 // Everything under (app) needs a signed-in user. This is the one place that decides so: pages
 // inside never check, and a session that ends mid-visit lands here too (see providers.tsx).
@@ -18,7 +18,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (me.data === null) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+    if (me.data === null) router.replace(signedOutOnPurpose() ? "/login" : `/login?next=${encodeURIComponent(pathname)}`);
   }, [me.data, pathname, router]);
 
   if (me.isError) {

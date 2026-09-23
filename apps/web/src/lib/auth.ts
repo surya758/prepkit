@@ -36,9 +36,18 @@ export function useSignIn(mode: "login" | "register") {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (credentials: Credentials) => api<{ user: User }>(`/auth/${mode}`, { method: "POST", body: credentials }),
-    onSuccess: ({ user }) => queryClient.setQueryData(ME, user),
+    onSuccess: ({ user }) => {
+      leftOnPurpose = false;
+      queryClient.setQueryData(ME, user);
+    },
   });
 }
+
+// Set by an explicit sign-out and cleared by the next sign-in: the sign-in page offers to
+// return to where the user was only when they did not choose to leave (an expired session, a
+// deep link), never after they pressed Sign out.
+let leftOnPurpose = false;
+export const signedOutOnPurpose = () => leftOnPurpose;
 
 export function useSignOut() {
   const queryClient = useQueryClient();
@@ -49,6 +58,7 @@ export function useSignOut() {
       // Go to the sign-in page first, so the signed-in frame is not left showing a placeholder
       // while a redirect catches up; then forget everything, since whatever one account loaded
       // must not be shown to the next person at this browser.
+      leftOnPurpose = true;
       router.replace("/login");
       queryClient.clear();
       queryClient.setQueryData(ME, null);
