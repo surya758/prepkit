@@ -56,17 +56,14 @@ export function RoleSection({ kit }: { kit: Kit }) {
                         <span className="flex size-7 shrink-0 items-center justify-center rounded-full border font-mono text-xs text-muted-foreground">{numbers.get(requirement.id)?.number}</span>
                         <div className="flex min-w-0 flex-1 flex-col gap-2">
                         <p className="font-semibold">{requirement.text}</p>
-                        {/* Every requirement is tied to the posting's own words. When they are the same
-                            words, saying so is enough; the quote is shown when the wording differs,
+                        {/* Every requirement is quoted from the posting. Nearly all are its exact words,
+                            which needs no saying; the quote is shown only when the wording differs,
                             which is when seeing the source matters. */}
-                        {evidence &&
-                          (sameWording(evidence, requirement.text) ? (
-                            <p className="text-xs text-muted-foreground">Word for word from the posting</p>
-                          ) : (
-                            <blockquote className="border-l-2 pl-3 text-sm text-muted-foreground">
-                              <span className="sr-only">From the job description: </span>“{evidence}”
-                            </blockquote>
-                          ))}
+                        {evidence && !sameWording(evidence, requirement.text) && (
+                          <blockquote className="border-l-2 pl-3 text-sm text-muted-foreground">
+                            <span className="sr-only">From the job description: </span>“{evidence}”
+                          </blockquote>
+                        )}
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge variant="secondary" className="border-transparent bg-muted capitalize text-muted-foreground">
                             {requirement.kind}
