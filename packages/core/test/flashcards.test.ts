@@ -81,7 +81,7 @@ describe("generateFlashcards", () => {
     const model = createFakeProvider([{ flashcards: [card("Keys in lists", ["r1"])] }]);
     await generateFlashcards(model, input, ctx());
     expect(model.calls[0]!.system).toContain("never what the job posting says");
-    expect(model.calls[0]!.system).toContain("Write two cards for each listed requirement");
+    expect(model.calls[0]!.system).toContain("Every listed requirement gets at least one card");
   });
 
   it("caps the number of cards", async () => {
@@ -89,6 +89,26 @@ describe("generateFlashcards", () => {
     const cards = await generateFlashcards(createFakeProvider([{ flashcards: many }]), input, ctx());
     expect(cards).toHaveLength(16);
     expect(cards.at(-1)!.id).toBe("f16");
+  });
+
+  it("never leaves a requirement without a card because of the cap: the cap grows, and first cards are kept before second ones", async () => {
+    const twenty: Requirement[] = Array.from({ length: 20 }, (_, i) => ({ id: `r${i + 1}`, text: `Requirement ${i + 1}`, kind: "technical", priority: i < 10 ? "must" : "nice" }));
+    // The model writes two cards for r1..r10 first, then one each for r11..r20: 30 cards.
+    const reply = [
+      ...twenty.slice(0, 10).flatMap((r) => [card(`${r.text} first`, [r.id]), card(`${r.text} second`, [r.id])]),
+      ...twenty.slice(10).map((r) => card(`${r.text} first`, [r.id])),
+    ];
+    const model = createFakeProvider([{ flashcards: reply }]);
+    const cards = await generateFlashcards(model, { ...input, requirements: twenty, companyFacts: "" }, ctx());
+
+    expect(model.calls[0]!.user).toContain("Write 20 flashcard(s). At least one for each listed requirement; second cards go to the must-haves.");
+    expect(model.calls[0]!.user).toContain("r20 [nice] Requirement 20");
+    // Cap of max(16, 20) = 20: one card for every requirement, none for any second.
+    expect(cards).toHaveLength(20);
+    const coveredIds = new Set(cards.flatMap((c) => c.requirement_ids));
+    for (const r of twenty) expect(coveredIds.has(r.id)).toBe(true);
+    expect(cards.filter((c) => c.front.endsWith("second"))).toHaveLength(0);
+    expect(cards.map((c) => c.id)).toEqual(Array.from({ length: 20 }, (_, i) => `f${i + 1}`));
   });
 
   it("makes no model call when there is nothing to make cards from", async () => {
