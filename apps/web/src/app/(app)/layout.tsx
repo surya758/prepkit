@@ -31,9 +31,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // While the user is being checked the frame is already there: the header with the parts that
-  // need no user, and the shape of a page below it, so the wait reads as the app loading rather
-  // than as an empty screen.
+  // The page renders at once, with its own loading state, while the user is checked: a signed-out
+  // visitor's page request answers 401, which marks them signed out (providers.tsx) and lands
+  // here as me.data === null, and only then is the page replaced by a placeholder for the
+  // moment before the redirect. Waiting for the check first showed two skeletons in a row and
+  // added a round trip to every load.
   return (
     <div className="flex flex-1 flex-col">
       <header className="flex items-center justify-between gap-4 border-b px-4 py-3 sm:px-8">
@@ -54,7 +56,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           )}
         </div>
       </header>
-      {me.data ? (
+      {me.data !== null ? (
         children
       ) : (
         <main aria-busy="true" aria-label="Loading" className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-4 py-8 sm:px-8 sm:py-10">

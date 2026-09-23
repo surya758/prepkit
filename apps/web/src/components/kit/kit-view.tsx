@@ -4,7 +4,7 @@ import type { Kit, KitMeta } from "@prepkit/core";
 import { Check, GraduationCap, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePracticeView } from "@/features/practice";
 import { BriefSection } from "./brief-section";
@@ -47,7 +47,6 @@ export function KitView({
   kit: Kit;
   meta: KitMeta | null;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   // The open section lives in the address, so a reload, the Back button and a shared link all keep it.
