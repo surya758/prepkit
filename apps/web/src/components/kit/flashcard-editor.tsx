@@ -1,12 +1,14 @@
 "use client";
 
-import type { Flashcard, Requirement } from "@prepkit/core";
+import type { Flashcard } from "@prepkit/core";
 import { Check, LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { FlashcardDraft } from "@/lib/kit-edits";
+import type { NumberedRequirement } from "@/lib/requirements";
+import { RequirementChip } from "./requirement-chip";
 
 // The flashcard twin of question-editor: a front, a back and the requirements it covers.
 
@@ -25,7 +27,7 @@ function patchOf(saved: FlashcardDraft, draft: FlashcardDraft): Partial<Flashcar
 
 interface Props {
   card: Flashcard | { id: string; isNew: true };
-  requirements: Requirement[];
+  requirements: Map<string, NumberedRequirement>;
   saving: boolean;
   onSave: (patch: Partial<FlashcardDraft>) => void;
   onCreate?: (draft: FlashcardDraft) => void;
@@ -87,17 +89,12 @@ export function FlashcardEditor({ card, requirements, saving, onSave, onCreate, 
         <Textarea id={`${card.id}-back`} rows={3} value={draft.back} onChange={(e) => setDraft({ ...draft, back: e.target.value })} aria-invalid={draft.back.trim() === ""} />
       </div>
       <fieldset className="flex flex-col gap-1.5">
-        <legend className="text-sm font-medium">Covers</legend>
+        <legend className="mb-2 text-sm font-medium">Covers</legend>
         <div className="flex flex-wrap gap-1.5">
-          {requirements.map((r) => {
-            const on = draft.requirement_ids.includes(r.id);
-            return (
-              <button key={r.id} type="button" aria-pressed={on} title={r.text} onClick={() => toggle(r.id)} className={`h-7 rounded-md border px-2 font-mono text-xs ${on ? "border-primary bg-accent text-accent-foreground" : "text-muted-foreground"}`}>
-                {r.id}
-              </button>
-            );
-          })}
-          {requirements.length === 0 && <span className="text-sm text-muted-foreground">This kit has no requirements.</span>}
+          {[...requirements].map(([id, r]) => (
+            <RequirementChip key={id} id={id} requirement={r} pressed={draft.requirement_ids.includes(id)} onToggle={() => toggle(id)} />
+          ))}
+          {requirements.size === 0 && <span className="text-sm text-muted-foreground">This kit has no requirements.</span>}
         </div>
       </fieldset>
       <div className="flex items-center justify-between gap-3">

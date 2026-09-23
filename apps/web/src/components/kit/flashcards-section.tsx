@@ -9,12 +9,13 @@ import { Button } from "@/components/ui/button";
 import { useFlashcardEdits } from "@/features/flashcards";
 import { excerpt } from "@/lib/format";
 import { metaFor } from "@/lib/item-meta";
+import { numberRequirements } from "@/lib/requirements";
 import { FlashcardCard } from "./flashcard-card";
 import { FlashcardEditor } from "./flashcard-editor";
 import { SortableList } from "./sortable-list";
 
 export function FlashcardsSection({ kitId, kit, meta }: { kitId: string; kit: Kit; meta: KitMeta | null }) {
-  const requirements = new Map(kit.role.requirements.map((r) => [r.id, r]));
+  const requirements = numberRequirements(kit.role.requirements);
   const edits = useFlashcardEdits(kitId);
   // Which editor or dialog is open. The only state a view owns.
   const [editing, setEditing] = useState<string | null>(null);
@@ -61,14 +62,14 @@ export function FlashcardsSection({ kitId, kit, meta }: { kitId: string; kit: Ki
           <SortableList items={kit.flashcards} describe={(f) => `the card “${f.front.slice(0, 60)}”`} onReorder={edits.reorder}>
             {(card, handle) =>
               editing === card.id ? (
-                <FlashcardEditor card={card} requirements={kit.role.requirements} saving={edits.isPending} onSave={(patch) => edits.edit(card.id, patch)} onClose={() => { setEditing(null); focusAfterRender(`[aria-label="Edit ${card.id}"]`); }} />
+                <FlashcardEditor card={card} requirements={requirements} saving={edits.isPending} onSave={(patch) => edits.edit(card.id, patch)} onClose={() => { setEditing(null); focusAfterRender(`[aria-label="Edit ${card.id}"]`); }} />
               ) : (
                 <FlashcardCard card={card} meta={metaFor(meta, card.id)} requirements={requirements} handle={handle} onEdit={() => setEditing(card.id)} onPin={(pinned) => edits.pin(card.id, pinned)} onDelete={() => setDeleting(card)} />
               )
             }
           </SortableList>
           {adding && (
-            <FlashcardEditor card={{ id: "new-flashcard", isNew: true }} requirements={kit.role.requirements} saving={false} onSave={() => {}} onCreate={(draft) => edits.add(draft)} onClose={() => { setAdding(false); focusAfterRender("#add-flashcard"); }} />
+            <FlashcardEditor card={{ id: "new-flashcard", isNew: true }} requirements={requirements} saving={false} onSave={() => {}} onCreate={(draft) => edits.add(draft)} onClose={() => { setAdding(false); focusAfterRender("#add-flashcard"); }} />
           )}
         </>
       )}

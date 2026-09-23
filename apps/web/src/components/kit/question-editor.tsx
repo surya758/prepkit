@@ -1,12 +1,14 @@
 "use client";
 
-import type { Question, Requirement } from "@prepkit/core";
+import type { Question } from "@prepkit/core";
 import { Check, LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { QuestionDraft } from "@/lib/kit-edits";
+import type { NumberedRequirement } from "@/lib/requirements";
+import { RequirementChip } from "./requirement-chip";
 
 const AUTOSAVE_MS = 500;
 const DIFFICULTY = ["Easy", "Medium", "Hard"];
@@ -29,7 +31,7 @@ function patchOf(saved: Draft, draft: Draft): Partial<Draft> {
 interface Props {
   /** An existing question, or a blank draft for a new one; a new one is created once, on Done. */
   question: Question | { id: string; isNew: true };
-  requirements: Requirement[];
+  requirements: Map<string, NumberedRequirement>;
   saving: boolean;
   onSave: (patch: Partial<Draft>) => void;
   onCreate?: (draft: Draft) => void;
@@ -99,7 +101,7 @@ export function QuestionEditor({ question, requirements, saving, onSave, onCreat
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <fieldset className="flex flex-col gap-1.5">
-          <legend className="text-sm font-medium">Difficulty</legend>
+          <legend className="mb-2 text-sm font-medium">Difficulty</legend>
           <div role="group" className="inline-flex self-start rounded-lg bg-muted p-0.5">
             {[1, 2, 3].map((level) => (
               <button
@@ -115,24 +117,12 @@ export function QuestionEditor({ question, requirements, saving, onSave, onCreat
           </div>
         </fieldset>
         <fieldset className="flex flex-col gap-1.5">
-          <legend className="text-sm font-medium">Covers</legend>
+          <legend className="mb-2 text-sm font-medium">Covers</legend>
           <div className="flex flex-wrap gap-1.5">
-            {requirements.map((r) => {
-              const on = draft.requirement_ids.includes(r.id);
-              return (
-                <button
-                  key={r.id}
-                  type="button"
-                  aria-pressed={on}
-                  title={r.text}
-                  onClick={() => toggleRequirement(r.id)}
-                  className={`h-7 rounded-md border px-2 font-mono text-xs ${on ? "border-primary bg-accent text-accent-foreground" : "text-muted-foreground"}`}
-                >
-                  {r.id}
-                </button>
-              );
-            })}
-            {requirements.length === 0 && <span className="text-sm text-muted-foreground">This kit has no requirements.</span>}
+            {[...requirements].map(([id, r]) => (
+              <RequirementChip key={id} id={id} requirement={r} pressed={draft.requirement_ids.includes(id)} onToggle={() => toggleRequirement(id)} />
+            ))}
+            {requirements.size === 0 && <span className="text-sm text-muted-foreground">This kit has no requirements.</span>}
           </div>
         </fieldset>
       </div>

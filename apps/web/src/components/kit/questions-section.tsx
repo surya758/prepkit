@@ -10,6 +10,7 @@ import { useQuestionEdits } from "@/features/questions";
 import { useRegenerate } from "@/features/regenerate";
 import { excerpt } from "@/lib/format";
 import { isKept, metaFor } from "@/lib/item-meta";
+import { numberRequirements } from "@/lib/requirements";
 import { QuestionCard } from "./question-card";
 import { QuestionEditor } from "./question-editor";
 import { SortableList } from "./sortable-list";
@@ -31,7 +32,7 @@ export function QuestionsSection({
   kit: Kit;
   meta: KitMeta | null;
 }) {
-  const requirements = new Map(kit.role.requirements.map((r) => [r.id, r]));
+  const requirements = numberRequirements(kit.role.requirements);
   const edits = useQuestionEdits(kitId);
   const regen = useRegenerate(kitId);
   // Which editor or dialog is open. The only state a view owns.
@@ -169,7 +170,7 @@ export function QuestionsSection({
                       return editing === question.id ? (
                         <QuestionEditor
                           question={question}
-                          requirements={kit.role.requirements}
+                          requirements={requirements}
                           saving={edits.isPending}
                           onSave={(patch) => edits.edit(question.id, patch)}
                           onClose={() => {
@@ -203,7 +204,7 @@ export function QuestionsSection({
                       <li>
                         <QuestionEditor
                           question={{ id: `new-${category}`, isNew: true }}
-                          requirements={kit.role.requirements}
+                          requirements={requirements}
                           saving={false}
                           onSave={() => {}}
                           onCreate={(draft) => edits.add(category, draft)}

@@ -1,14 +1,16 @@
-import type { Flashcard, ItemMeta, Requirement } from "@prepkit/core";
+import type { Flashcard, ItemMeta } from "@prepkit/core";
 import { Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ItemBadges } from "./item-badges";
+import { RequirementChip } from "./requirement-chip";
 import { DragHandle } from "./sortable-list";
+import type { NumberedRequirement } from "@/lib/requirements";
 import type { HandleProps } from "./sortable-list";
 
 interface Props {
   card: Flashcard;
   meta: ItemMeta;
-  requirements: Map<string, Requirement>;
+  requirements: Map<string, NumberedRequirement>;
   handle: HandleProps;
   onEdit: () => void;
   onPin: (pinned: boolean) => void;
@@ -25,9 +27,7 @@ export function FlashcardCard({ card, meta, requirements, handle, onEdit, onPin,
         <div className="flex flex-wrap items-center gap-2">
           <ItemBadges item={meta} />
           {card.requirement_ids.map((id) => (
-            <span key={id} title={requirements.get(id)?.text} className="inline-flex h-5.5 items-center rounded-md border px-1.5 font-mono text-xs text-muted-foreground">
-              {id}
-            </span>
+            <RequirementChip key={id} id={id} requirement={requirements.get(id)} />
           ))}
           <span className="ml-auto" />
           <Button variant="ghost" size="icon-sm" onClick={() => onPin(!meta.pinned)} aria-pressed={meta.pinned} aria-label={meta.pinned ? `Unpin ${card.id}` : `Pin ${card.id}`} title={meta.pinned ? "Unpin" : "Pin, so a regeneration keeps it"}>

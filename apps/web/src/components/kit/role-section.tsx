@@ -1,11 +1,13 @@
 import type { Kit, Requirement } from "@prepkit/core";
 import { Badge } from "@/components/ui/badge";
+import { numberRequirements } from "@/lib/requirements";
 
 const sameWording = (a: string, b: string) => a.trim().replace(/\s+/g, " ").toLowerCase() === b.trim().replace(/\s+/g, " ").toLowerCase();
 
 export function RoleSection({ kit }: { kit: Kit }) {
   const { role } = kit;
   const uncovered = new Set(kit.coverage.uncovered_requirement_ids);
+  const numbers = numberRequirements(role.requirements);
   const questionsFor = (id: string) => kit.questions.filter((q) => q.requirement_ids.includes(id)).length;
   const groups: [string, string, Requirement[]][] = [
     ["Must have", "must", role.requirements.filter((r) => r.priority === "must")],
@@ -49,11 +51,11 @@ export function RoleSection({ kit }: { kit: Kit }) {
                     const evidence = kit.requirement_evidence?.[requirement.id];
                     const count = questionsFor(requirement.id);
                     return (
-                      <li key={requirement.id} className="flex flex-col gap-2 rounded-xl border bg-card p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <p className="font-semibold">{requirement.text}</p>
-                          <span className="shrink-0 font-mono text-xs text-muted-foreground">{requirement.id}</span>
-                        </div>
+                      <li key={requirement.id} className="flex gap-3 rounded-xl border bg-card p-4">
+                        {/* The number questions and flashcards refer to it by. */}
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full border font-mono text-xs text-muted-foreground">{numbers.get(requirement.id)?.number}</span>
+                        <div className="flex min-w-0 flex-1 flex-col gap-2">
+                        <p className="font-semibold">{requirement.text}</p>
                         {/* Every requirement is tied to the posting's own words. When they are the same
                             words, saying so is enough; the quote is shown when the wording differs,
                             which is when seeing the source matters. */}
@@ -78,6 +80,7 @@ export function RoleSection({ kit }: { kit: Kit }) {
                               {count} {count === 1 ? "question" : "questions"}
                             </span>
                           )}
+                        </div>
                         </div>
                       </li>
                     );

@@ -1,4 +1,4 @@
-import type { ItemMeta, Question, Requirement } from "@prepkit/core";
+import type { ItemMeta, Question } from "@prepkit/core";
 import {
   ArrowDown,
   ArrowUp,
@@ -23,7 +23,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ItemBadges } from "./item-badges";
 import { CATEGORY_LABELS } from "./questions-section";
+import { RequirementChip } from "./requirement-chip";
 import { DragHandle } from "./sortable-list";
+import type { NumberedRequirement } from "@/lib/requirements";
 import type { HandleProps } from "./sortable-list";
 
 const DIFFICULTY = ["Easy", "Medium", "Hard"];
@@ -49,7 +51,7 @@ function Difficulty({ level }: { level: number }) {
 interface Props {
   question: Question;
   meta: ItemMeta;
-  requirements: Map<string, Requirement>;
+  requirements: Map<string, NumberedRequirement>;
   onEdit?: () => void;
   onPin?: (pinned: boolean) => void;
   onDelete?: () => void;
@@ -88,14 +90,9 @@ export function QuestionCard({
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <ItemBadges item={meta} />
+          {/* What the question covers, by the requirement's number on the Role tab. */}
           {question.requirement_ids.map((id) => (
-            <span
-              key={id}
-              title={requirements.get(id)?.text}
-              className="inline-flex h-5.5 items-center rounded-md border px-1.5 font-mono text-xs text-muted-foreground"
-            >
-              {id}
-            </span>
+            <RequirementChip key={id} id={id} requirement={requirements.get(id)} />
           ))}
           <Difficulty level={question.difficulty} />
           <span className="ml-auto" />
