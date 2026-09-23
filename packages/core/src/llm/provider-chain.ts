@@ -50,7 +50,7 @@ export interface ProviderChainOptions {
 
 export function createProviderChain(providers: LlmProvider[], options: ProviderChainOptions = {}): ProviderChain {
   if (providers.length === 0) {
-    throw new PipelineError("LLM_NOT_CONFIGURED", "No model is configured. Set LLM_API_KEY and LLM_MODEL.");
+    throw new PipelineError("LLM_NOT_CONFIGURED", "No model is configured. Set GEMINI_API_KEY (and optionally GROQ_API_KEY) in .env; see .env.example.");
   }
   const now = options.now ?? Date.now;
   const skipUntil = new Map<string, number>();
