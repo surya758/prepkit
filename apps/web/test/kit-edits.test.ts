@@ -51,10 +51,11 @@ describe("the browser's optimistic rules agree with core's real ones", () => {
     expect(comparable(deleteQuestion(state(), "q1"))).toEqual(comparable(core.deleteQuestion(state(), "q1")));
   });
 
-  it("marking an item untouched again after an undo", () => {
+  it("an undo: the browser's edit-then-untouched equals core's revert", () => {
     const edited = editQuestion(state(), "q1", { prompt: "Changed" });
-    expect(comparable(setEdited(edited, "q1", false))).toEqual(comparable(core.setEdited(edited, "q1", false)));
-    expect(setEdited(edited, "q1", false).meta.items.q1?.edited).toBe(false);
+    const ours = setEdited(editQuestion(edited, "q1", { prompt: "State?" }), "q1", false);
+    expect(comparable(ours)).toEqual(comparable(core.revertQuestion(edited, "q1", { prompt: "State?" })));
+    expect(ours.meta.items.q1?.edited).toBe(false);
   });
 
   it("pinning and unpinning", () => {
