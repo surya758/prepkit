@@ -54,7 +54,7 @@ export function FlashcardsSection({ kitId, kit, meta }: { kitId: string; kit: Ki
           Add flashcard
         </Button>
       </div>
-      <p className="text-sm text-muted-foreground">Two per requirement and a few about the company, for practice mode. Drag to set the order they are shown in.</p>
+      <p className="text-sm text-muted-foreground">At least one per requirement, two where there is room, and a few about the company, for practice mode. Drag to set the order they are shown in.</p>
 
       {kit.flashcards.length === 0 && !adding ? (
         <p className="rounded-xl border border-dashed p-5 text-muted-foreground">This kit has no flashcards. Add one, or they are written when the kit is generated.</p>
