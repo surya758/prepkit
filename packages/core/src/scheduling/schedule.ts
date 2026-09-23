@@ -88,29 +88,19 @@ function minutesFor(questions: Question[], review: boolean): number {
   return Math.min(total, MAX_MINUTES_PER_DAY);
 }
 
-function truncate(text: string, max = 40): string {
-  return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
-}
-
-function focusFor(questions: Question[], textById: Map<string, string>, prefix = ''): string {
+/**
+ * A day's focus is its categories, most represented first, at most two: "Technical + Behavioural".
+ * The questions themselves say what the day is about; repeating requirement texts here made a
+ * label too long to read.
+ */
+function focusFor(questions: Question[], prefix = ''): string {
   const counts = new Map<Question['category'], number>();
   for (const q of questions) counts.set(q.category, (counts.get(q.category) ?? 0) + 1);
   const categories = [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 2)
     .map(([category]) => CATEGORY_LABELS[category]);
-
-  const topics: string[] = [];
-  for (const q of questions) {
-    for (const id of q.requirement_ids) {
-      const text = textById.get(id);
-      if (text && !topics.includes(text) && topics.length < 2) topics.push(text);
-    }
-  }
-
-  const label = categories.join(' + ');
-  const detail = topics.map((t) => truncate(t)).join(', ');
-  return `${prefix}${detail ? `${label}: ${detail}` : label}`;
+  return `${prefix}${categories.join(' + ')}`;
 }
 
 export function buildSchedule(
@@ -123,7 +113,6 @@ export function buildSchedule(
     throw new RangeError(`daysAvailable must be a positive integer, got ${daysAvailable}`);
   }
 
-  const textById = new Map(requirements.map((r) => [r.id, r.text]));
   const ranked = rankQuestions(questions, requirements, emphasis);
   const days: ScheduleDay[] = [];
 
@@ -155,14 +144,14 @@ export function buildSchedule(
     for (const size of frontLoadedSizes(ordered.length, daysAvailable)) {
       const chunk = ordered.slice(cursor, cursor + size);
       cursor += size;
-      push(chunk, focusFor(chunk, textById), false);
+      push(chunk, focusFor(chunk), false);
     }
     return { days_available: daysAvailable, days };
   }
 
   // More days than questions (the 60-day case): new material first, one question a day
   // in rank order, then review days that cycle through it, ending on the must-haves.
-  for (const q of ordered) push([q], focusFor([q], textById), false);
+  for (const q of ordered) push([q], focusFor([q]), false);
 
   const mustQuestions = ranked.filter((r) => r.tier === 'must').map((r) => r.question);
   const perReview = Math.min(REVIEW_QUESTIONS_PER_DAY, ordered.length);
@@ -170,11 +159,11 @@ export function buildSchedule(
   while (days.length < daysAvailable - 1) {
     const chunk = Array.from({ length: perReview }, (_, i) => ordered[(cursor + i) % ordered.length]!);
     cursor = (cursor + perReview) % ordered.length;
-    push(chunk, focusFor(chunk, textById, 'Review — '), true);
+    push(chunk, focusFor(chunk, 'Review — '), true);
   }
   // The last day is a light recap, not a cram: top-ranked must-haves only.
   const finalSet = (mustQuestions.length > 0 ? mustQuestions : ordered).slice(0, FINAL_REVIEW_MAX_QUESTIONS);
-  push(finalSet, focusFor(finalSet, textById, 'Final review — '), true);
+  push(finalSet, focusFor(finalSet, 'Final review — '), true);
 
   return { days_available: daysAvailable, days };
 }

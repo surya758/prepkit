@@ -68,10 +68,10 @@ describe('buildSchedule', () => {
     expect(allIds(schedule).sort()).toEqual(['q1', 'q2', 'q3', 'q4', 'q5', 'q6']);
   });
 
-  it('writes the focus in code from the day\'s categories and requirement texts', () => {
+  it('writes the focus in code from the day\'s categories, most represented first', () => {
     const schedule = buildSchedule(questions, requirements, 3);
-    expect(schedule.days[0]!.focus).toBe('Technical + Behavioural: 5+ years with React, Experience mentoring junior engineers');
-    expect(schedule.days[2]!.focus).toBe('Technical: Logistics domain knowledge');
+    expect(schedule.days[0]!.focus).toBe('Technical + Behavioural');
+    expect(schedule.days[2]!.focus).toBe('Technical');
   });
 
   it('fills a 60-day schedule: new material first, then review days, then a must-have recap', () => {
