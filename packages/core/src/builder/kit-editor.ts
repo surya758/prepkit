@@ -235,6 +235,20 @@ export function setPinned(input: EditableKit, id: string, pinned: boolean): Edit
   return finish(state);
 }
 
+/**
+ * Whether an item counts as changed by the user. Cleared after an undo has put it back as the
+ * model wrote it, so a regeneration may replace it again. Brief fields are keyed "brief.<field>".
+ */
+export function setEdited(input: EditableKit, id: string, edited: boolean): EditableKit {
+  const state = copy(input);
+  if (id.startsWith("brief.")) {
+    if (!["summary", "what_they_do"].includes(id.slice("brief.".length))) throw new KitEditError("ITEM_NOT_FOUND", `There is no brief field ${id}`);
+  } else if (id.startsWith("q")) question(state, id);
+  else flashcard(state, id);
+  touch(state, id, { edited });
+  return finish(state);
+}
+
 export function editBrief(input: EditableKit, field: BriefField, value: string): EditableKit {
   const state = copy(input);
   state.kit.company_brief[field] = value.trim();

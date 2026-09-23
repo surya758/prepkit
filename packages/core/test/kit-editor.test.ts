@@ -10,6 +10,7 @@ import {
   editQuestion,
   editScheduleDay,
   initialMeta,
+  setEdited,
   isLocked,
   mergeRegeneratedBrief,
   mergeRegeneratedCategory,
@@ -346,5 +347,21 @@ describe("editing flashcards", () => {
   it("pins a flashcard, and refuses to pin something that is not there", () => {
     expect(metaOf(setPinned(freshKit(), "f2", true).meta, "f2").pinned).toBe(true);
     expect(() => setPinned(freshKit(), "f404", true)).toThrow("There is no flashcard f404 in this kit");
+  });
+});
+
+describe("setEdited", () => {
+  it("after an undo an item counts as untouched again, so a regeneration may replace it", () => {
+    const edited = editQuestion(freshKit(), "q1", { prompt: "Changed" });
+    expect(metaOf(edited.meta, "q1").edited).toBe(true);
+    const restored = setEdited(edited, "q1", false);
+    expect(metaOf(restored.meta, "q1")).toEqual({ origin: "generated", edited: false, pinned: false });
+  });
+
+  it("works for a brief field, and refuses an item the kit does not have", () => {
+    const state = setEdited(editBrief(freshKit(), "summary", "Mine"), "brief.summary", false);
+    expect(metaOf(state.meta, "brief.summary").edited).toBe(false);
+    expect(() => setEdited(freshKit(), "q99", false)).toThrow(KitEditError);
+    expect(() => setEdited(freshKit(), "brief.sources", false)).toThrow(KitEditError);
   });
 });
