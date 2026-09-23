@@ -183,9 +183,6 @@ export default function PracticePage() {
             <CardStepper
               session={sitting}
               cards={new Map(kit.data.kit.flashcards.map((f) => [f.id, f]))}
-              requirements={
-                new Map(kit.data.kit.role.requirements.map((r) => [r.id, r]))
-              }
               onReveal={reveal}
               onRate={rate}
               onSkip={skip}

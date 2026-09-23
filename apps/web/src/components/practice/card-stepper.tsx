@@ -1,6 +1,6 @@
 "use client";
 
-import type { Confidence, Flashcard, Requirement } from "@prepkit/core";
+import type { Confidence, Flashcard } from "@prepkit/core";
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
 import { useEffect } from "react";
@@ -18,13 +18,12 @@ const RATINGS: { value: Confidence; label: string; hint: string }[] = [
 interface Props {
   session: Session;
   cards: Map<string, Flashcard>;
-  requirements: Map<string, Requirement>;
   onReveal: () => void;
   onRate: (confidence: Confidence) => void;
   onSkip: () => void;
 }
 
-export function CardStepper({ session, cards, requirements, onReveal, onRate, onSkip }: Props) {
+export function CardStepper({ session, cards, onReveal, onRate, onSkip }: Props) {
   const id = currentCard(session);
   const card = id ? cards.get(id) : undefined;
 
@@ -71,15 +70,6 @@ export function CardStepper({ session, cards, requirements, onReveal, onRate, on
           transition={{ duration: 0.2 }}
           className="flex min-h-72 flex-col gap-5 rounded-2xl border bg-card p-6 sm:p-8"
         >
-          <div className="flex flex-wrap gap-1.5">
-            {/* The requirement in its own words: what this card is for, not its id. */}
-            {card.requirement_ids.map((rid) => (
-              <span key={rid} className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs text-muted-foreground">
-                {requirements.get(rid)?.text ?? rid}
-              </span>
-            ))}
-            {card.requirement_ids.length === 0 && <span className="text-xs text-muted-foreground">About the company</span>}
-          </div>
           <p className="font-display text-3xl leading-tight sm:text-4xl">{card.front}</p>
           {session.revealed ? (
             <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }} className="flex flex-col gap-4 border-t pt-5">
