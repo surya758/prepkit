@@ -249,6 +249,22 @@ export function setEdited(input: EditableKit, id: string, edited: boolean): Edit
   return finish(state);
 }
 
+// --- undo: put an item back as the model wrote it, in one operation ----------------------
+// An undo that saved the original and then cleared the flag would show the item as edited
+// for a round trip; one operation means the kit is never in between.
+
+export function revertQuestion(input: EditableKit, id: string, patch: Partial<DraftQuestion>): EditableKit {
+  return setEdited(editQuestion(input, id, patch), id, false);
+}
+
+export function revertFlashcard(input: EditableKit, id: string, patch: Partial<DraftFlashcard>): EditableKit {
+  return setEdited(editFlashcard(input, id, patch), id, false);
+}
+
+export function revertBrief(input: EditableKit, field: BriefField, value: string): EditableKit {
+  return setEdited(editBrief(input, field, value), `brief.${field}`, false);
+}
+
 export function editBrief(input: EditableKit, field: BriefField, value: string): EditableKit {
   const state = copy(input);
   state.kit.company_brief[field] = value.trim();
