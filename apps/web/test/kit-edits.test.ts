@@ -1,7 +1,7 @@
 import * as core from "@prepkit/core";
 import type { Kit, KitMeta } from "@prepkit/core";
 import { describe, expect, it } from "vitest";
-import { addFlashcard, addQuestion, deleteFlashcard, deleteQuestion, editBrief, editFlashcard, editQuestion, editScheduleDay, fullOrder, moveQuestion, reorderFlashcards, reorderQuestions, setPinned } from "@/lib/kit-edits";
+import { addFlashcard, addQuestion, deleteFlashcard, deleteQuestion, editBrief, editFlashcard, editQuestion, editScheduleDay, fullOrder, moveQuestion, reorderFlashcards, reorderQuestions, setEdited, setPinned } from "@/lib/kit-edits";
 import type { KitState } from "@/lib/kit-edits";
 
 // A small valid kit, the shape the pipeline produces, with two questions in different categories.
@@ -49,6 +49,12 @@ describe("the browser's optimistic rules agree with core's real ones", () => {
 
   it("deleting", () => {
     expect(comparable(deleteQuestion(state(), "q1"))).toEqual(comparable(core.deleteQuestion(state(), "q1")));
+  });
+
+  it("marking an item untouched again after an undo", () => {
+    const edited = editQuestion(state(), "q1", { prompt: "Changed" });
+    expect(comparable(setEdited(edited, "q1", false))).toEqual(comparable(core.setEdited(edited, "q1", false)));
+    expect(setEdited(edited, "q1", false).meta.items.q1?.edited).toBe(false);
   });
 
   it("pinning and unpinning", () => {
