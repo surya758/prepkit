@@ -38,6 +38,8 @@ export function FlashcardEditor({ card, requirements, saving, onSave, onCreate, 
   const isNew = "isNew" in card;
   const [draft, setDraft] = useState<FlashcardDraft>(() => (isNew ? BLANK : draftOf(card)));
   const [saved, setSaved] = useState<FlashcardDraft>(() => (isNew ? BLANK : draftOf(card)));
+  // As it was when the editor opened, for Undo changes (see question-editor).
+  const [original] = useState<FlashcardDraft>(() => (isNew ? BLANK : draftOf(card)));
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const frontRef = useRef<HTMLTextAreaElement>(null);
   const empty = draft.front.trim() === "" || draft.back.trim() === "";
@@ -64,6 +66,12 @@ export function FlashcardEditor({ card, requirements, saving, onSave, onCreate, 
     } else if (!empty && !same(draft, saved)) {
       onSave(patchOf(saved, draft));
     }
+    onClose();
+  }
+
+  function undo() {
+    clearTimeout(timer.current);
+    if (!same(saved, original)) onSave(patchOf(saved, original));
     onClose();
   }
 
@@ -102,10 +110,16 @@ export function FlashcardEditor({ card, requirements, saving, onSave, onCreate, 
           {empty ? "A front and a back are both needed." : isNew ? "Added when you press Add flashcard" : saving ? <><LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Saving</> : same(draft, saved) ? <><Check className="size-3.5" aria-hidden="true" /> Saved</> : "Saves as you type"}
         </p>
         <div className="flex gap-2">
-          {isNew && (
+          {isNew ? (
             <Button type="button" size="sm" variant="ghost" onClick={onClose}>
               Cancel
             </Button>
+          ) : (
+            !same(draft, original) && (
+              <Button type="button" size="sm" variant="ghost" onClick={undo}>
+                Undo changes
+              </Button>
+            )
           )}
           <Button type="button" size="sm" onClick={done} disabled={isNew && empty}>
             {isNew ? "Add flashcard" : "Done"}

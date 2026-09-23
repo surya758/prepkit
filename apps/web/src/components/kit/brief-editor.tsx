@@ -22,6 +22,8 @@ export function BriefFieldEditor({ id, label, value, saving, onSave, onClose }: 
   // The editor owns the draft while open, so a refetch cannot replace text mid-sentence.
   const [draft, setDraft] = useState(value);
   const [saved, setSaved] = useState(value);
+  // As it was when the editor opened, for Undo changes (see question-editor).
+  const [original] = useState(value);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const field = useRef<HTMLTextAreaElement>(null);
   const empty = draft.trim() === "";
@@ -46,6 +48,12 @@ export function BriefFieldEditor({ id, label, value, saving, onSave, onClose }: 
     onClose();
   }
 
+  function undo() {
+    clearTimeout(timer.current);
+    if (saved !== original) onSave(original);
+    onClose();
+  }
+
   return (
     <div
       className="flex flex-col gap-3 rounded-xl border border-ring/60 bg-card p-4"
@@ -61,9 +69,16 @@ export function BriefFieldEditor({ id, label, value, saving, onSave, onClose }: 
         <p role="status" className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {empty ? "This cannot be empty." : saving ? <><LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Saving</> : draft === saved ? <><Check className="size-3.5" aria-hidden="true" /> Saved</> : "Saves as you type"}
         </p>
-        <Button type="button" size="sm" onClick={done}>
-          Done
-        </Button>
+        <div className="flex gap-2">
+          {draft !== original && (
+            <Button type="button" size="sm" variant="ghost" onClick={undo}>
+              Undo changes
+            </Button>
+          )}
+          <Button type="button" size="sm" onClick={done}>
+            Done
+          </Button>
+        </div>
       </div>
     </div>
   );

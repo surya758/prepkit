@@ -45,6 +45,9 @@ export function QuestionEditor({ question, requirements, saving, onSave, onCreat
   const [draft, setDraft] = useState<Draft>(() => (isNew ? BLANK : draftOf(question)));
   // What was last sent. State, not a ref: the status line renders from it.
   const [saved, setSaved] = useState<Draft>(() => (isNew ? BLANK : draftOf(question)));
+  // As it was when the editor opened, for Undo changes: autosave means there is nothing unsaved
+  // to cancel, so the way back is to save the original again.
+  const [original] = useState<Draft>(() => (isNew ? BLANK : draftOf(question)));
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const empty = draft.prompt.trim() === "" || draft.answer_outline.trim() === "";
@@ -73,6 +76,12 @@ export function QuestionEditor({ question, requirements, saving, onSave, onCreat
     } else if (!empty && !same(draft, saved)) {
       onSave(patchOf(saved, draft));
     }
+    onClose();
+  }
+
+  function undo() {
+    clearTimeout(timer.current);
+    if (!same(saved, original)) onSave(patchOf(saved, original));
     onClose();
   }
 
@@ -131,10 +140,16 @@ export function QuestionEditor({ question, requirements, saving, onSave, onCreat
           {empty ? "A question and an outline are both needed." : isNew ? "Added when you press Add question" : saving ? <><LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Saving</> : same(draft, saved) ? <><Check className="size-3.5" aria-hidden="true" /> Saved</> : "Saves as you type"}
         </p>
         <div className="flex gap-2">
-          {isNew && (
+          {isNew ? (
             <Button type="button" size="sm" variant="ghost" onClick={onClose}>
               Cancel
             </Button>
+          ) : (
+            !same(draft, original) && (
+              <Button type="button" size="sm" variant="ghost" onClick={undo}>
+                Undo changes
+              </Button>
+            )
           )}
           <Button type="button" size="sm" onClick={done} disabled={isNew && empty}>
             {isNew ? "Add question" : "Done"}
