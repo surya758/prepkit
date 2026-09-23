@@ -53,7 +53,23 @@ export function useCreateKit() {
         body: fresh ? { ...input, force: true } : input,
         headers: fresh ? { "Idempotency-Key": fresh.idempotencyKey } : undefined,
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["kits"] }),
+    onSuccess: ({ kit }, { fresh: _fresh, days, ...input }) => {
+      // The record as the server holds it at this moment: queued, no steps yet. Cached so the
+      // kit page can show its header and timeline at once; the first poll replaces it.
+      queryClient.setQueryData<KitDetail>(["kit", kit.id], {
+        id: kit.id,
+        status: kit.status,
+        input: { ...input, days: days ?? kit.days },
+        progress: [],
+        error: null,
+        kit: null,
+        meta: null,
+        rev: 0,
+        createdAt: kit.createdAt,
+        updatedAt: kit.updatedAt,
+      });
+      return queryClient.invalidateQueries({ queryKey: ["kits"] });
+    },
   });
 }
 
@@ -111,7 +127,11 @@ export function useRetryKit(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => api<{ kit: KitSummary }>(`/kits/${id}/retry`, { method: "POST" }),
-    onSuccess: () => Promise.all([queryClient.invalidateQueries({ queryKey: ["kit", id] }), queryClient.invalidateQueries({ queryKey: ["kits"] })]),
+    onSuccess: ({ kit }) => {
+      // Queued again, from scratch: shown at once, confirmed by the next poll.
+      queryClient.setQueryData<KitDetail>(["kit", id], (current) => current && { ...current, status: kit.status, progress: [], error: null, updatedAt: kit.updatedAt });
+      return Promise.all([queryClient.invalidateQueries({ queryKey: ["kit", id] }), queryClient.invalidateQueries({ queryKey: ["kits"] })]);
+    },
   });
 }
 
