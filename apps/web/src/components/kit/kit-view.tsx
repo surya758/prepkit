@@ -79,7 +79,7 @@ export function KitView({
             </span>
           </div>
         )}
-        <PractiseButton kitId={kitId} href={`${pathname}/practice`} />
+        <PractiseButton kitId={kitId} href={`${pathname}/practice?from=${section}`} />
       </div>
 
       <Tabs

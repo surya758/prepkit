@@ -2,7 +2,7 @@
 
 import type { Confidence } from "@prepkit/core";
 import Link from "next/link";
-import { notFound, useParams } from "next/navigation";
+import { notFound, useParams, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { CardStepper } from "@/components/practice/card-stepper";
 import { CoveragePanel } from "@/components/practice/coverage-panel";
@@ -19,8 +19,13 @@ import { kitTitle, useKit } from "@/lib/kits";
 import * as session from "@/lib/practice-session";
 import type { Session } from "@/lib/practice-session";
 
+const KIT_TABS = ["brief", "role", "questions", "flashcards", "schedule"];
+
 export default function PracticePage() {
   const { id } = useParams<{ id: string }>();
+  // Back goes to the tab Practise was pressed on; opened by address, to the flashcards.
+  const from = useSearchParams().get("from");
+  const backTab = from && KIT_TABS.includes(from) ? from : "flashcards";
   const kit = useKit(id);
   const view = usePracticeView(id);
   const rating = useRateCard(id);
@@ -82,7 +87,7 @@ export default function PracticePage() {
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div className="flex flex-col gap-1">
           <Link
-            href={`/kits/${id}?tab=flashcards`}
+            href={`/kits/${id}?tab=${backTab}`}
             className="text-sm text-muted-foreground underline-offset-4 hover:underline"
           >
             ← {kit.data ? kitTitle(kit.data) : "The kit"}
@@ -173,7 +178,7 @@ export default function PracticePage() {
                   </Button>
                 )}
                 <Button variant="outline" asChild>
-                  <Link href={`/kits/${id}?tab=flashcards`}>
+                  <Link href={`/kits/${id}?tab=${backTab}`}>
                     Back to the kit
                   </Link>
                 </Button>
