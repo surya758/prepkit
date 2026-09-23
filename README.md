@@ -66,6 +66,9 @@ npm run dev               # API on :4000 and web app on http://localhost:3000, i
 | `MONGODB_URI` | API | Atlas connection string with both placeholders replaced; database `prepkit` |
 | `WEB_ORIGIN` | API | the web app's address; state-changing requests from any other origin are refused. Default `http://localhost:3000` |
 | `API_URL` | web | where `/api/*` is forwarded. Default `http://localhost:4000`; see [`apps/web/.env.example`](apps/web/.env.example) |
+| `PORT` | API | set by the host; default `4000` |
+| `NODE_ENV` | API | set by the host (`production` on Render): turns on Secure cookies and turns off fetching of private and loopback addresses. There is no separate flag for either |
+| `RENDER_EXTERNAL_URL` | API | set by Render, never by hand: the instance's public address, which switches on the keep-awake self-request |
 
 ### The batch entry point
 
