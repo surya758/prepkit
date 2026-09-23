@@ -10,6 +10,9 @@ import {
   editQuestion,
   editScheduleDay,
   initialMeta,
+  revertBrief,
+  revertFlashcard,
+  revertQuestion,
   setEdited,
   isLocked,
   mergeRegeneratedBrief,
@@ -363,5 +366,23 @@ describe("setEdited", () => {
     expect(metaOf(state.meta, "brief.summary").edited).toBe(false);
     expect(() => setEdited(freshKit(), "q99", false)).toThrow(KitEditError);
     expect(() => setEdited(freshKit(), "brief.sources", false)).toThrow(KitEditError);
+  });
+});
+
+describe("revert: an undo in one operation", () => {
+  it("puts the content back and leaves the item untouched, never edited in between", () => {
+    const edited = editQuestion(freshKit(), "q1", { prompt: "Changed" });
+    const original = freshKit().kit.questions.find((q) => q.id === "q1")!.prompt;
+    const reverted = revertQuestion(edited, "q1", { prompt: original });
+    expect(reverted.kit.questions.find((q) => q.id === "q1")!.prompt).toBe(original);
+    expect(metaOf(reverted.meta, "q1")).toEqual({ origin: "generated", edited: false, pinned: false });
+  });
+
+  it("the same for a flashcard and a brief field", () => {
+    const card = revertFlashcard(editFlashcard(freshKit(), "f1", { back: "Changed" }), "f1", { back: freshKit().kit.flashcards[0]!.back });
+    expect(metaOf(card.meta, "f1").edited).toBe(false);
+    const brief = revertBrief(editBrief(freshKit(), "summary", "Mine"), "summary", freshKit().kit.company_brief.summary);
+    expect(brief.kit.company_brief.summary).toBe(freshKit().kit.company_brief.summary);
+    expect(metaOf(brief.meta, "brief.summary").edited).toBe(false);
   });
 });

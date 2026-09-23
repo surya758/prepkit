@@ -9,7 +9,6 @@ import {
   editFlashcardSchema,
   editQuestionSchema,
   editScheduleDaySchema,
-  editedSchema,
   pinSchema,
   regenerateSchema,
   reorderSchema,
@@ -71,9 +70,16 @@ export function createBuilderRouter({ builder, requireUser }: BuilderRouterDepen
     res.json(toView(await builder.setPinned(...who(req), param(req, "itemId"), pinSchema.parse(req.body).pinned)));
   });
 
-  // After an undo has put an item back as the model wrote it, it counts as untouched again.
-  router.put("/kits/:id/items/:itemId/edited", async (req, res) => {
-    res.json(toView(await builder.setEdited(...who(req), param(req, "itemId"), editedSchema.parse(req.body).edited)));
+  // Undo: the same bodies as the edits, but the item counts as untouched again afterwards.
+  router.post("/kits/:id/questions/:itemId/revert", async (req, res) => {
+    res.json(toView(await builder.revertQuestion(...who(req), param(req, "itemId"), editQuestionSchema.parse(req.body))));
+  });
+  router.post("/kits/:id/flashcards/:itemId/revert", async (req, res) => {
+    res.json(toView(await builder.revertFlashcard(...who(req), param(req, "itemId"), editFlashcardSchema.parse(req.body))));
+  });
+  router.post("/kits/:id/brief/revert", async (req, res) => {
+    const { field, value } = editBriefSchema.parse(req.body);
+    res.json(toView(await builder.revertBrief(...who(req), field, value)));
   });
 
   router.patch("/kits/:id/brief", async (req, res) => {

@@ -15,7 +15,9 @@ import {
   regenerateSchedule,
   reorderFlashcards,
   reorderQuestions,
-  setEdited,
+  revertBrief,
+  revertFlashcard,
+  revertQuestion,
   setPinned,
 } from "@prepkit/core";
 import { emphasisFromPractice, emphasisSummary, practiceProgress } from "@prepkit/core";
@@ -85,7 +87,10 @@ export function createBuilderService({ kits, regenerate, practice, now = () => n
     reorderFlashcards: (userId: string, kitId: string, ids: string[]) => apply(userId, kitId, (s) => reorderFlashcards(s, ids)),
 
     setPinned: (userId: string, kitId: string, id: string, pinned: boolean) => apply(userId, kitId, (s) => setPinned(s, id, pinned)),
-    setEdited: (userId: string, kitId: string, id: string, edited: boolean) => apply(userId, kitId, (s) => setEdited(s, id, edited)),
+    // Undo: the original content back and the item untouched again, as one change.
+    revertQuestion: (userId: string, kitId: string, id: string, patch: Partial<DraftQuestion>) => apply(userId, kitId, (s) => revertQuestion(s, id, patch)),
+    revertFlashcard: (userId: string, kitId: string, id: string, patch: Partial<DraftFlashcard>) => apply(userId, kitId, (s) => revertFlashcard(s, id, patch)),
+    revertBrief: (userId: string, kitId: string, field: BriefField, value: string) => apply(userId, kitId, (s) => revertBrief(s, field, value)),
     editBrief: (userId: string, kitId: string, field: BriefField, value: string) => apply(userId, kitId, (s) => editBrief(s, field, value)),
     editScheduleDay: (userId: string, kitId: string, day: number, patch: Partial<Pick<ScheduleDay, "focus" | "minutes" | "question_ids">>) =>
       apply(userId, kitId, (s) => editScheduleDay(s, day, patch)),
