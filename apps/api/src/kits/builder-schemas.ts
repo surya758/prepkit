@@ -26,6 +26,7 @@ export const editFlashcardSchema = z.object(flashcardFields).partial().refine((p
 
 export const reorderSchema = z.object({ ids });
 export const pinSchema = z.object({ pinned: z.boolean() });
+export const editedSchema = z.object({ edited: z.boolean() });
 export const editBriefSchema = z.object({ field: z.enum(["summary", "what_they_do"]), value: text(4_000) });
 
 export const editScheduleDaySchema = z

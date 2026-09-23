@@ -15,6 +15,7 @@ import {
   regenerateSchedule,
   reorderFlashcards,
   reorderQuestions,
+  setEdited,
   setPinned,
 } from "@prepkit/core";
 import { emphasisFromPractice, emphasisSummary, practiceProgress } from "@prepkit/core";
@@ -84,6 +85,7 @@ export function createBuilderService({ kits, regenerate, practice, now = () => n
     reorderFlashcards: (userId: string, kitId: string, ids: string[]) => apply(userId, kitId, (s) => reorderFlashcards(s, ids)),
 
     setPinned: (userId: string, kitId: string, id: string, pinned: boolean) => apply(userId, kitId, (s) => setPinned(s, id, pinned)),
+    setEdited: (userId: string, kitId: string, id: string, edited: boolean) => apply(userId, kitId, (s) => setEdited(s, id, edited)),
     editBrief: (userId: string, kitId: string, field: BriefField, value: string) => apply(userId, kitId, (s) => editBrief(s, field, value)),
     editScheduleDay: (userId: string, kitId: string, day: number, patch: Partial<Pick<ScheduleDay, "focus" | "minutes" | "question_ids">>) =>
       apply(userId, kitId, (s) => editScheduleDay(s, day, patch)),

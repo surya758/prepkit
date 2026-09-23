@@ -9,6 +9,7 @@ import {
   editFlashcardSchema,
   editQuestionSchema,
   editScheduleDaySchema,
+  editedSchema,
   pinSchema,
   regenerateSchema,
   reorderSchema,
@@ -68,6 +69,11 @@ export function createBuilderRouter({ builder, requireUser }: BuilderRouterDepen
   // A question or a flashcard: the id says which.
   router.put("/kits/:id/items/:itemId/pin", async (req, res) => {
     res.json(toView(await builder.setPinned(...who(req), param(req, "itemId"), pinSchema.parse(req.body).pinned)));
+  });
+
+  // After an undo has put an item back as the model wrote it, it counts as untouched again.
+  router.put("/kits/:id/items/:itemId/edited", async (req, res) => {
+    res.json(toView(await builder.setEdited(...who(req), param(req, "itemId"), editedSchema.parse(req.body).edited)));
   });
 
   router.patch("/kits/:id/brief", async (req, res) => {
