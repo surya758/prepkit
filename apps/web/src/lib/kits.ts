@@ -126,7 +126,10 @@ export function useDeleteKit(id: string, { onDeleted, onFailed }: { onDeleted: (
   return useMutation({
     mutationFn: () => api<void>(`/kits/${id}`, { method: "DELETE" }),
     onSuccess: () => {
-      // Leave first, then forget the kit, so nothing on this page asks for it again.
+      // The list the user lands on is the cached one, so the kit comes out of it now rather
+      // than when the refetch answers: otherwise it is on the page for a round trip after
+      // being deleted. Then leave, forget the kit, and let the list re-ask to be sure.
+      queryClient.setQueryData<KitSummary[]>(["kits"], (kits) => kits?.filter((kit) => kit.id !== id));
       onDeleted();
       queryClient.removeQueries({ queryKey: ["kit", id] });
       return queryClient.invalidateQueries({ queryKey: ["kits"] });
