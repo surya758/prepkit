@@ -114,11 +114,14 @@ describe("editing questions over HTTP", () => {
     expect(deleted.body.kit.kit.schedule.days.flatMap((d: { question_ids: string[] }) => d.question_ids)).not.toContain("q1");
   });
 
-  it("marks an item untouched again after an undo, and refuses one the kit does not have", async () => {
+  it("an undo puts the content back and the item untouched again, in one request", async () => {
     const { browser, id } = await setup().signInWithKit();
+    const original = (await browser.get(`/api/kits/${id}`)).body.kit.kit.questions.find((q: { id: string }) => q.id === "q1").prompt;
     await browser.patch(`/api/kits/${id}/questions/q1`).send({ prompt: "Changed" });
-    expect((await browser.put(`/api/kits/${id}/items/q1/edited`).send({ edited: false })).body.kit.meta.items.q1.edited).toBe(false);
-    expect((await browser.put(`/api/kits/${id}/items/q99/edited`).send({ edited: false })).status).toBe(404);
+    const reverted = await browser.post(`/api/kits/${id}/questions/q1/revert`).send({ prompt: original });
+    expect(reverted.body.kit.kit.questions.find((q: { id: string }) => q.id === "q1").prompt).toBe(original);
+    expect(reverted.body.kit.meta.items.q1.edited).toBe(false);
+    expect((await browser.post(`/api/kits/${id}/questions/q99/revert`).send({ prompt: "x" })).status).toBe(404);
   });
 
   it("pins and unpins", async () => {
