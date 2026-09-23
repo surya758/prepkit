@@ -41,7 +41,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             strict: only the slim `m` components are allowed, so the full library cannot slip in. */}
         <MotionConfig reducedMotion="user">
           <LazyMotion features={loadMotionFeatures} strict>
-            <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+            <TooltipProvider delayDuration={200} disableHoverableContent>{children}</TooltipProvider>
             <Toaster position="bottom-center" />
           </LazyMotion>
         </MotionConfig>
