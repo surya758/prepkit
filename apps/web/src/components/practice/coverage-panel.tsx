@@ -22,7 +22,9 @@ export function CoveragePanel({ progress, requirements }: Props) {
   const untouched = progress.requirements.filter((r) => r.status === "not_started").length;
 
   return (
-    <aside aria-labelledby="coverage-heading" className="flex flex-col gap-3 rounded-2xl border bg-card p-5">
+    // Beside the card on a laptop it stays in view and scrolls on its own, so a kit with many
+    // requirements does not make the page a long scroll; on a phone it stacks below the card.
+    <aside aria-labelledby="coverage-heading" className="flex flex-col gap-3 rounded-2xl border bg-card p-5 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
       <h2 id="coverage-heading" className="font-display text-2xl">
         What you have covered
       </h2>
