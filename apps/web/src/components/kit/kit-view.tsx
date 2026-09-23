@@ -85,8 +85,10 @@ export function KitView({
 
       <Tabs
         value={section}
+        // The address changes without a navigation: a router call would fetch the page from the
+        // server on every tab press. Next's useSearchParams follows replaceState.
         onValueChange={(next) =>
-          router.replace(`${pathname}?tab=${next}`, { scroll: false })
+          window.history.replaceState(null, "", `${pathname}?tab=${next}`)
         }
       >
         <TabsList>
