@@ -14,8 +14,8 @@ describe("stepLabel", () => {
     ["questions:technical", "Writing technical questions"],
     ["questions:system-design", "Writing system design questions"],
     ["questions:company-fit", "Writing company fit questions"],
-    ["questions:repair_2:technical", "Closing a coverage gap: technical questions (pass 2)"],
-    ["questions:repair_3:system-design", "Closing a coverage gap: system design questions (pass 3)"],
+    ["questions:repair_2:technical", "Closing a coverage gap: technical questions"],
+    ["questions:repair_3:system-design", "Closing a coverage gap: system design questions"],
   ])("%s -> %s", (step, label) => {
     expect(stepLabel(step)).toBe(label);
   });
@@ -64,7 +64,7 @@ describe("buildTimeline", () => {
 
   it("shows a coverage repair pass as its own row", () => {
     const progress = [started("questions:technical"), completed("questions:technical", 4000), started("questions:repair_2:technical")];
-    expect(buildTimeline(progress, true).map((s) => s.label)).toEqual(["Writing technical questions", "Closing a coverage gap: technical questions (pass 2)"]);
+    expect(buildTimeline(progress, true).map((s) => s.label)).toEqual(["Writing technical questions", "Closing a coverage gap: technical questions"]);
   });
 
   it("shows nothing as running once generation has ended, as after a server restart", () => {

@@ -40,7 +40,7 @@ export function stepLabel(step: string): string {
   if (LABELS[step]) return LABELS[step];
   // A second or third pass, asked only for the requirements the previous one left uncovered.
   const repair = /^questions:repair_(\d+):(.+)$/.exec(step);
-  if (repair) return `Closing a coverage gap: ${words(repair[2]!)} questions (pass ${repair[1]})`;
+  if (repair) return `Closing a coverage gap: ${words(repair[2]!)} questions`;
   const category = /^questions:(.+)$/.exec(step);
   if (category) return `Writing ${words(category[1]!)} questions`;
   // A step added to the pipeline later still gets a readable row.
